@@ -13,7 +13,7 @@ export type IPeer2PeerContext = {
     swarms?: { [key: string]: any },
     bees?: { [key: string]: any },
     autopasses?: { [key: string]: any },
-    getBee?: (name: string) => Promise<any>
+    getBee: (name: string) => Promise<Hyperbee>
 }
 
 export const Peer2PeerProviderState = createContext<IPeer2PeerContext>({
@@ -22,7 +22,8 @@ export const Peer2PeerProviderState = createContext<IPeer2PeerContext>({
     drives: {},
     swarms: {},
     corestores: {},
-    setAppVersion: () => { }
+    setAppVersion: () => { },
+    getBee: () => Promise.resolve(null) as any
 })
 
 export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) => {

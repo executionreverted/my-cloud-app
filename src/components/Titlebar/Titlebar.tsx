@@ -46,7 +46,7 @@ const MenuToggle = ({ toggle, isOpen }: { toggle: () => void, isOpen: boolean })
     );
 };
 
-const MenuItem = ({ onClick = () => { }, children, isLast = false, to = "/", ...rest }: { onClick: () => any, children: React.ReactNode, isLast: boolean, to: string, rest: any }) => {
+const MenuItem = ({ onClick = () => { }, children, isLast = false, to = "/", ...rest }: { onClick: () => any, children?: React.ReactNode, isLast?: boolean, to?: string, rest?: any }) => {
     return (
         <Text display="block" {...rest} onClick={onClick}>
             {children}

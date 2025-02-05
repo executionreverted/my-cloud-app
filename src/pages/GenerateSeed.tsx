@@ -36,10 +36,14 @@ export default function GenerateSeed() {
         }
         setIsLoading(true)
         try {
-            // const bee = await getBee()
-            // await bee.put("seed", JSON.stringify({
-            //     seedPhrase: temporarySeedPhrase
-            // }))
+            const storagePath = await getStoragePath(SECRET_BEE_NAME)
+            const bee = await getBee(SECRET_BEE_NAME)
+            if (!bee) {
+                throw new Error("Bee not found")
+            }
+            await bee.put("seed", JSON.stringify({
+                seedPhrase: temporarySeedPhrase
+            }))
 
             toaster.create({
                 title: "Account Created",
