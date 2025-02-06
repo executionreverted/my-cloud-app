@@ -7,7 +7,8 @@ export default defineConfig({
   plugins: [react(), nodePolyfills({
     include: ['path', 'fs', 'os', 'crypto', 'buffer'],
     overrides: {
-      'crypto': 'bare-crypto'
+      'crypto': 'bare-crypto',
+      'fs': 'memfs'
     },
     globals: {
       Buffer: true,
@@ -22,20 +23,20 @@ export default defineConfig({
   base: "/dist/",
   optimizeDeps: {
     esbuildOptions: {
-      target: 'esnext'
+      target: 'node20'
     },
-    include: ["random-access-file", "protocol-buffers-encodings"],
+    include: ["random-access-file", "protocol-buffers-encodings", "fs"],
     exclude: ['sodium-universal', 'sodium-native', 'sodium']
   },
   build: {
+    target: 'node20',
     commonjsOptions: {
       transformMixedEsModules: true
     },
     rollupOptions: {
       logLevel: "debug",
-      external: ['sodium-universal', 'sodium-native', 'sodium', 'udx-native', "random-access-file", "protocol-buffers-encodings", "varint", "signed-varint", "b4a"]
+      external: ['sodium-universal', 'sodium-native', 'sodium', 'udx-native', "random-access-file", "hyperdht"]
     },
-
   },
   resolve: {
     alias: {

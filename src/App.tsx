@@ -7,11 +7,12 @@ import { useSeed } from './hooks/useSeed';
 import GenerateSeed from './pages/GenerateSeed';
 import { useEffect, useState } from 'react';
 import { useP2P } from './hooks/useP2P';
+import Import from './pages/Import';
 
 function App() {
   const [loading, setLoading] = useState(true)
   const { appVersion, setAppVersion } = useP2P()
-  const { seedPhrase } = useSeed()
+  const { seedPhrase, isSeedLoading } = useSeed()
   useEffect(() => {
     if (!appVersion) {
       getAppVersion()
@@ -21,21 +22,21 @@ function App() {
   const getAppVersion = async () => {
     const { app } = await Pear.versions()
     console.log(app);
-
     setAppVersion(app as any)
     setLoading(false)
   }
 
-  if (loading) {
+  if (loading || isSeedLoading) {
     return <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
       <Loader color='white' />
     </Box>
   }
 
-  if (!seedPhrase) {
+  if (!seedPhrase && !isSeedLoading) {
     return <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/generate-seed" element={<GenerateSeed />} />
+      <Route path="/import" element={<Import />} />
       <Route path="/help" element={<div>Help page!</div>} />
     </Routes>
   }

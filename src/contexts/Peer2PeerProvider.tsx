@@ -5,6 +5,11 @@ import Hyperbee from "hyperbee";
 import Autopass from "autopass"
 import Corestore from "corestore";
 import Hypercore from "hypercore";
+import { SECRET_AUTOPASS_CORE_STORAGE_PATH } from "../config/storage";
+
+// @ts-ignore
+import fs from 'fs'
+
 
 export type IPeer2PeerContext = {
     appVersion?: any,
@@ -16,6 +21,7 @@ export type IPeer2PeerContext = {
     bees?: { [key: string]: any },
     autopasses?: { [key: string]: any },
     getBee: (name: string) => Promise<any>
+    getAutopass: (name: string) => Promise<any>
 }
 
 export const Peer2PeerProviderState = createContext<IPeer2PeerContext>({
@@ -26,7 +32,8 @@ export const Peer2PeerProviderState = createContext<IPeer2PeerContext>({
     swarms: {},
     corestores: {},
     setAppVersion: () => { },
-    getBee: () => Promise.resolve(null) as any
+    getBee: () => Promise.resolve(null) as any,
+    getAutopass: () => Promise.resolve(null) as any
 })
 
 export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) => {
@@ -76,13 +83,39 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         if (!corestore) {
             corestores.current[name] = new Hypercore(name)
             await corestores.current[name].ready()
-            console.log("corestore ready", corestores.current[name]);
         }
 
-        console.log("initializing bee", corestores.current[name]);
-        const bee = new Hyperbee(corestores.current[name])
+        const bee = new Hyperbee(corestores.current[name], {
+            keyEncoding: "utf-8",
+            valueEncoding: "utf-8"
+        })
         bees.current[name] = bee
         return bee;
+    }
+
+    async function getAutopass(name: string): Promise<Autopass> {
+        if (autopasses.current[name]) {
+            // if instance exists, return it
+            return autopasses.current[name]
+        }
+
+        autopasses.current[name] = new Autopass(new Corestore(SECRET_AUTOPASS_CORE_STORAGE_PATH))
+        await autopasses.current[name].ready()
+        const inviteFile = SECRET_AUTOPASS_CORE_STORAGE_PATH + "/invite.json"
+        console.log("fs", fs)
+        try {
+            if (!fs.existsSync(inviteFile)) {
+                console.log("Creating invite file.")
+                fs.writeFileSync(inviteFile, 'w')
+            }
+        } catch (error) {
+            console.log("error", error)
+        }
+
+        return autopasses.current[name]
+    }
+
+    async function joinSecretChannel(): Promise<Corestore> {
     }
 
     return <Peer2PeerProviderState.Provider value={{
@@ -93,6 +126,7 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         autopasses: autopasses.current,
         corestores: corestores.current,
         getBee,
+        getAutopass,
         appVersion,
         setAppVersion
     }}>{children}</Peer2PeerProviderState.Provider>

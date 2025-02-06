@@ -21,12 +21,12 @@ export default function Landing() {
     return (
         <VStack h={"100vh"} overflow={"hidden"} p={"36px"}>
             <Box gap={6} maxW={"70%"} h={"100%"} display={"flex"} flexDirection={"column"}>
-                <Heading textAlign={"center"} size={"4xl"}>Create New Account</Heading>
+                <Heading textAlign={"center"} size={"4xl"}>Welcome to Pearzone</Heading>
                 <Text textAlign={"left"}>
                     Lorem ipsum dolor sit amet consectetur, adipisicing elit. Eos animi ab explicabo consectetur rem laborum facilis aliquam velit quam commodi sit sint optio, eligendi esse dolore modi quae tenetur. Esse?
                 </Text>
                 <Text>
-                    In order to use Pearzone, you need to create a new account, or sync up with an existing account.
+                    This is a welcome message.
                 </Text>
             </Box>
             <Box>

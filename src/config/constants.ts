@@ -1,0 +1,1 @@
+export const SECRET_CHANNEL_ID = "swarm-secret"

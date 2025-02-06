@@ -7,11 +7,11 @@ import { Checkbox } from "../components/ui/checkbox"
 import { GiCelebrationFire } from "react-icons/gi"
 import { Field } from "../components/ui/field"
 import { useP2P } from "../hooks/useP2P"
-import { getStoragePath, SECRET_BEE_NAME } from "../config/storage"
+import { SECRET_BEE_STORAGE_PATH, SECRET_AUTOPASS_STORAGE_PATH } from "../config/storage"
 import { toaster } from "../components/ui/toaster"
 
 export default function GenerateSeed() {
-    const { getBee } = useP2P()
+    const { getBee, getAutopass } = useP2P()
     const { temporarySeedPhrase, createNewSeedPhrase } = useSeed()
     const [confirmSeedPhrase, setConfirmSeedPhrase] = useState(false)
     const [alteredSeedPhrase, setAlteredSeedPhrase] = useState<string[]>([])
@@ -22,9 +22,6 @@ export default function GenerateSeed() {
 
     const isValid = accepted ? alteredIndexes.every((index) => userInput[index] == temporarySeedPhrase[index]) : false
 
-    getStoragePath(SECRET_BEE_NAME)
-
-    console.log(isValid)
     function handleCreate() {
         createNewSeedPhrase(20)
     }
@@ -37,17 +34,23 @@ export default function GenerateSeed() {
 
         setIsLoading(true)
         try {
-            const bee = await getBee(SECRET_BEE_NAME)
+            console.log("created bee")
+            const bee = await getBee(SECRET_BEE_STORAGE_PATH)
             if (!bee) {
                 throw new Error("Bee not found")
             }
+            console.log("putting seed", temporarySeedPhrase)
             await bee.put("seed", JSON.stringify({
                 seedPhrase: temporarySeedPhrase
             }))
+            console.log("putting seed done")
+            console.log("creating secret autopass")
+            await getAutopass(SECRET_AUTOPASS_STORAGE_PATH)
+            console.log("creating secret autopass done")
 
             toaster.create({
                 title: "Account Created",
-                description: "Your seed phrase has been saved. Reloading...",
+                description: "Your seed phrase has been saved and private databases are ready to use. Reloading...",
                 type: "success",
                 placement: "top",
                 onStatusChange: Pear.reload
@@ -168,7 +171,7 @@ export default function GenerateSeed() {
                     }}> <PiArrowRightFill /> Continue</Button>
 
                     <Button variant="outline" onClick={() => {
-                        handleComplete()
+                        handleComplete(true)
                     }}> <FiRotateCw /> DEV</Button>
                 </HStack>
             </Box>
