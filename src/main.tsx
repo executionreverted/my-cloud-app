@@ -8,7 +8,6 @@ import { Peer2PeerProvider } from './contexts/Peer2PeerProvider'
 import { MemoryRouter } from "react-router";
 import { SeedProvider } from './contexts/SeedProvider'
 
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Peer2PeerProvider>

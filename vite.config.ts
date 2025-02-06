@@ -4,24 +4,44 @@ import circleDependency from 'vite-plugin-circular-dependency'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), nodePolyfills(), circleDependency({
+  plugins: [react(), nodePolyfills({
+    include: ['path', 'fs', 'os', 'crypto', 'buffer'],
+    overrides: {
+      'crypto': 'bare-crypto'
+    },
+    globals: {
+      Buffer: true,
+      global: true,
+      process: true,
+    },
+  }),
+  circleDependency({
     outputFilePath: "./circleDep",
-  }),],
+  })
+  ],
   base: "/dist/",
   optimizeDeps: {
-    include: ['corestore', 'hyperbee'], // Kullandığınız node modüllerini buraya ekleyin
     esbuildOptions: {
       target: 'esnext'
-    }
+    },
+    include: ["random-access-file", "protocol-buffers-encodings"],
+    exclude: ['sodium-universal', 'sodium-native', 'sodium']
+  },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true
+    },
+    rollupOptions: {
+      logLevel: "debug",
+      external: ['sodium-universal', 'sodium-native', 'sodium', 'udx-native', "random-access-file", "protocol-buffers-encodings", "varint", "signed-varint", "b4a"]
+    },
+
   },
   resolve: {
     alias: {
-      // Node.js core modüllerinin polyfill'lerini ekleyin
-      stream: 'stream-browserify',
-      path: 'path-browserify',
-      crypto: 'crypto-browserify',
-      fs: 'browserify-fs',
-      // Diğer gerekli node modülleri için polyfill'ler...
+      'sodium-universal': 'sodium-plus',
+      'sodium-native': 'sodium-plus',
+      'sodium': 'sodium-plus',
     }
   }
 })

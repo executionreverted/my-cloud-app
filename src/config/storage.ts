@@ -1,8 +1,8 @@
-export const SECRET_BEE_NAME = "./secret-bee.db"
-export const SECRET_CORE_NAME = "./secret-core.db"
-export const SECRET_DRIVE_NAME = "./secret-drive.db"
-export const SECRET_SWARM_NAME = "./secret-swarm.db"
-export const SECRET_AUTOPASS_NAME = "./secret-autopass.db"
+export const SECRET_BEE_NAME = Pear.config.storage + "/secret-bee.db"
+export const SECRET_CORE_NAME = Pear.config.storage + "/secret-core.db"
+export const SECRET_DRIVE_NAME = Pear.config.storage + "/secret-drive.db"
+export const SECRET_SWARM_NAME = Pear.config.storage + "/secret-swarm.db"
+export const SECRET_AUTOPASS_NAME = Pear.config.storage + "/secret-autopass.db"
 
 
 export async function getStoragePath(name: string = "default_storage") {

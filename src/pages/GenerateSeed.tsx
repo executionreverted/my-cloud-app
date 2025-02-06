@@ -29,14 +29,14 @@ export default function GenerateSeed() {
         createNewSeedPhrase(20)
     }
 
-    async function handleComplete() {
+    async function handleComplete(force = false) {
 
-        if (!isValid) {
-            console.log("invalid")
+        if (!isValid && !force) {
+            return
         }
+
         setIsLoading(true)
         try {
-            const storagePath = await getStoragePath(SECRET_BEE_NAME)
             const bee = await getBee(SECRET_BEE_NAME)
             if (!bee) {
                 throw new Error("Bee not found")
@@ -112,7 +112,13 @@ export default function GenerateSeed() {
                 </Grid>
 
                 <HStack align={"center"} justifyContent={"center"} justifySelf={"flex-end"} mt={"auto"}>
+                    <Button variant="outline" onClick={() => {
+                        setAccepted(false)
+                        setConfirmSeedPhrase(false)
+                    }}> <FiRotateCw /> Back</Button>
                     <Button loading={isLoading} loadingText={"Creating Account"} disabled={!isValid} variant="outline" onClick={() => {
+                        setAccepted(true)
+
                         handleComplete()
                     }}> <GiCelebrationFire /> Continue </Button>
                 </HStack>
@@ -160,6 +166,10 @@ export default function GenerateSeed() {
                     <Button disabled={temporarySeedPhrase.length == 0 || !accepted} variant="outline" onClick={() => {
                         handleProof()
                     }}> <PiArrowRightFill /> Continue</Button>
+
+                    <Button variant="outline" onClick={() => {
+                        handleComplete()
+                    }}> <FiRotateCw /> DEV</Button>
                 </HStack>
             </Box>
         </VStack >
