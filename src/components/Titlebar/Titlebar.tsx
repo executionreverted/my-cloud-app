@@ -8,7 +8,7 @@ const NavBar = (props: any) => {
     const toggle = () => setIsOpen(!isOpen);
 
     return (
-        <NavBarContainer {...props}>
+        <NavBarContainer style={{ "-webkit-app-region": "drag" }} {...props}>
             <p>LOGO</p>
             <MenuToggle toggle={toggle} isOpen={isOpen} />
             <MenuLinks isOpen={isOpen} />
@@ -89,7 +89,7 @@ const MenuLinks = ({ isOpen }: { isOpen: boolean }) => {
     );
 };
 
-const NavBarContainer = ({ children, ...props }: { children: React.ReactNode, props: any }) => {
+const NavBarContainer = ({ style, children, ...props }: { style: React.CSSProperties, children: React.ReactNode, props: any }) => {
     return (
         <Flex
             as="nav"
@@ -102,6 +102,7 @@ const NavBarContainer = ({ children, ...props }: { children: React.ReactNode, pr
             bg={["primary.500", "primary.500", "transparent", "transparent"]}
             color={["white", "white", "primary.700", "primary.700"]}
             {...props}
+            style={style}
         >
             {children}
         </Flex>

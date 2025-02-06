@@ -8,6 +8,7 @@ import GenerateSeed from './pages/GenerateSeed';
 import { useEffect, useState } from 'react';
 import { useP2P } from './hooks/useP2P';
 import Import from './pages/Import';
+import Chat from './pages/Chat';
 
 function App() {
   const [loading, setLoading] = useState(true)
@@ -45,6 +46,7 @@ function App() {
       <SidebarWithHeader>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/chat" element={<Chat />} />
           <Route path="/generate-seed" element={<GenerateSeed />} />
           <Route path="/help" element={<div>Help page!</div>} />
         </Routes>

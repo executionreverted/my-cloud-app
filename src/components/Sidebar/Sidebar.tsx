@@ -24,16 +24,19 @@ import {
     FiMenu,
     FiBell,
     FiChevronDown,
-    FiX
+    FiX,
 } from 'react-icons/fi'
 import { IconType } from 'react-icons'
 import { useColorModeValue } from '../ui/color-mode'
 import { DrawerContent } from '../ui/drawer'
 import { MenuContent, MenuRoot, MenuSeparator, MenuTrigger } from '../ui/menu'
 import { Avatar } from '../ui/avatar'
+import { IoChatbubble } from 'react-icons/io5'
+import { useNavigate } from 'react-router'
 interface LinkItemProps {
     name: string
     icon: IconType
+    path: string
 }
 
 interface NavItemProps extends FlexProps {
@@ -51,24 +54,49 @@ interface SidebarProps extends BoxProps {
 }
 
 const LinkItems: Array<LinkItemProps> = [
-    { name: 'Home', icon: FiHome },
-    { name: 'Trending', icon: FiTrendingUp },
-    { name: 'Explore', icon: FiCompass },
-    { name: 'Favourites', icon: FiStar },
-    { name: 'Settings', icon: FiSettings },
+    { name: 'Home', icon: FiHome, path: '/' },
+    {
+        name: 'Chat', icon: IoChatbubble, path: '/chat'
+    },
+    { name: 'Explore', icon: FiCompass, path: '/explore' },
+    { name: 'Favourites', icon: FiStar, path: '/favourites' },
+    { name: 'Settings', icon: FiSettings, path: '/settings' },
+    { name: 'Home', icon: FiHome, path: '/' },
+    {
+        name: 'Chat', icon: IoChatbubble, path: '/chat'
+    },
+    { name: 'Explore', icon: FiCompass, path: '/explore' },
+    { name: 'Favourites', icon: FiStar, path: '/favourites' },
+    { name: 'Settings', icon: FiSettings, path: '/settings' },
+    { name: 'Home', icon: FiHome, path: '/' },
+    {
+        name: 'Chat', icon: IoChatbubble, path: '/chat'
+    },
+    { name: 'Explore', icon: FiCompass, path: '/explore' },
+    { name: 'Favourites', icon: FiStar, path: '/favourites' },
+    { name: 'Settings', icon: FiSettings, path: '/settings' },
+    { name: 'Home', icon: FiHome, path: '/' },
+    {
+        name: 'Chat', icon: IoChatbubble, path: '/chat'
+    },
+    { name: 'Explore', icon: FiCompass, path: '/explore' },
+    { name: 'Favourites', icon: FiStar, path: '/favourites' },
+    { name: 'Settings', icon: FiSettings, path: '/settings' },
 ]
 
 const SidebarContent = ({ open, onClose, ...rest }: SidebarProps) => {
-    console.log(open)
+    const navigate = useNavigate()
     return (
         <Box
             transition="1s ease"
-            bg={useColorModeValue('gray.900', 'gray.900')}
+            bg={useColorModeValue('red.200', 'gray.900')}
             borderRight="1px"
             borderRightColor={useColorModeValue('gray.200', 'gray.700')}
-            w={{ base: 'full', md: 60 }}
+            w={{ base: 'full', md: 16 }}
             pos="fixed"
             h="full"
+            // @ts-ignore
+            style={{ "-webkit-app-region": "drag" }}
             {...rest}>
             <Flex h="20" alignItems="center" mx="8" justifyContent="space-between">
                 <Text fontSize="2xl" fontFamily="monospace" fontWeight="bold">
@@ -76,11 +104,23 @@ const SidebarContent = ({ open, onClose, ...rest }: SidebarProps) => {
                 </Text>
                 <CloseButton variant={"subtle"} display={{ base: 'flex', md: 'none' }} onClick={onClose} />
             </Flex>
-            {LinkItems.map((link) => (
-                <NavItem key={link.name} icon={link.icon}>
-                    {link.name}
-                </NavItem>
-            ))}
+            <Flex
+
+                style={{
+                    // @ts-ignore
+                    "-webkit-app-region": "none",
+                    scrollbarWidth: "none",
+                    scrollBehavior: "smooth"
+                }}
+                overflow={"auto"}
+                maxHeight={"90vh"}
+                flexDirection={"column"} gap={"1em"} alignItems={"center"} justifyContent={"center"}>
+                {LinkItems.map((link) => (
+                    <NavItem key={link.name} icon={link.icon} onClick={() => navigate(link.path)}>
+                        {""}
+                    </NavItem>
+                ))}
+            </Flex>
         </Box>
     )
 }
@@ -88,25 +128,30 @@ const SidebarContent = ({ open, onClose, ...rest }: SidebarProps) => {
 const NavItem = ({ icon, children, ...rest }: NavItemProps) => {
     return (
         <Box
+            display={"flex"}
+            justifyContent={"center"}
+            alignItems={"center"}
             as="a"
             style={{ textDecoration: 'none' }}
             _focus={{ boxShadow: 'none' }}>
             <Flex
+                justifyContent={"center"}
                 align="center"
                 p="4"
-                mx="4"
+                mx="auto"
+                w={"12"}
                 borderRadius="lg"
                 role="group"
                 cursor="pointer"
                 _hover={{
-                    bg: 'cyan.400',
+                    bg: 'cyan.300',
                     color: 'white',
                 }}
                 {...rest}>
                 {icon && (
                     <Icon
-                        mr="4"
-                        fontSize="16"
+                        size={"lg"}
+                        fontSize="24"
                         _groupHover={{
                             color: 'white',
                         }}
@@ -122,8 +167,10 @@ const NavItem = ({ icon, children, ...rest }: NavItemProps) => {
 const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
     return (
         <Flex
-            ml={{ base: 0, md: 60 }}
+            ml={{ base: 0, md: 16 }}
             px={{ base: 4, md: 4 }}
+            // @ts-ignore
+            style={{ "-webkit-app-region": "drag" }}
             height="20"
             alignItems="center"
             bg={useColorModeValue('white', 'gray.900')}
@@ -217,7 +264,7 @@ const SidebarWithHeader = ({ children }: { children: React.ReactNode }) => {
             </Drawer.Root>
             {/* mobilenav */}
             <MobileNav onOpen={onOpen} />
-            <Box ml={{ base: 0, md: 60 }} p="4">
+            <Box ml={{ base: 0, md: 16 }} p="4">
                 {children}
             </Box>
         </Box>
