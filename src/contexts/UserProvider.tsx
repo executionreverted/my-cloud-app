@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from "react"
-import { Profile } from "../types/identity"
+import { Profile } from "../types/identity.types"
 import { useP2P } from "../hooks/useP2P"
 import { PROFILE_STORAGE_PATH, PROFILE_FILE_PATH } from "../config/storage"
 

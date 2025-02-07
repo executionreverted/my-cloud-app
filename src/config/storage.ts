@@ -6,6 +6,11 @@ export const SECRET_SWARM_STORAGE_PATH = Pear.config.storage + "/secret-swarm"
 export const SECRET_AUTOPASS_STORAGE_PATH = Pear.config.storage + "/secret-autopass"
 
 
+
+
+export const ROOMS_AUTOPASS_PATH = Pear.config.storage + "/rooms"
+export const ROOMS_AUTOPASS_KEY = "rooms"
+
 export const PROFILE_STORAGE_PATH = Pear.config.storage + "/profile"
 export const PROFILE_FILE_PATH = "/meta/profile.json"
 export async function getAppKey() {

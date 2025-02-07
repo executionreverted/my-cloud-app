@@ -24,7 +24,7 @@ export type IPeer2PeerContext = {
     autopasses?: { [key: string]: any },
     rpcs?: { [key: string]: any },
     getBee: (name: string) => Promise<any>
-    getAutopass: (name: string) => Promise<any>
+    getAutopass: (corestorePath?: string) => Promise<any>
     getRPC: (key: string) => Promise<any>
     getCore: (storagePath: string) => Promise<any>
     getDrive: (storagePath: string) => Promise<any>
@@ -108,17 +108,20 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         return bee;
     }
 
-    async function getAutopass(name: string): Promise<Autopass> {
+    async function getAutopass(name: string = SECRET_AUTOPASS_CORE_STORAGE_PATH): Promise<Autopass> {
         if (autopasses.current[name]) {
             // if instance exists, return it
             return autopasses.current[name]
         }
 
-        autopasses.current[name] = new Autopass(new Corestore(SECRET_AUTOPASS_CORE_STORAGE_PATH))
+        autopasses.current[name] = new Autopass(new Corestore(name))
+        console.log("autopass", autopasses.current[name])
         await autopasses.current[name].ready()
-        const inviteFile = SECRET_AUTOPASS_CORE_STORAGE_PATH + "/invite.json"
+        const inviteFile = name + "/.invite"
+        console.log("inviteFile", inviteFile)
         try {
             if (!fs.existsSync(inviteFile)) {
+                fs.mkdirSync(name, { recursive: true })
                 console.log("Creating invite file.")
                 fs.writeFileSync(inviteFile, 'w')
             }
@@ -154,7 +157,7 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
             console.log("corestore already exists", corestores.current[storagePath])
             return corestores.current[storagePath]
         }
-        
+
         const corestore = new Corestore(storagePath)
         await corestore.ready()
         corestores.current[storagePath] = corestore

@@ -11,26 +11,17 @@ import {
 import { IoAdd, IoSearch } from 'react-icons/io5';
 import { Avatar } from '../components/ui/avatar';
 import { useColorModeValue } from '../components/ui/color-mode';
-const rooms = [
-    { id: 1, name: 'General', avatar: '/path/to/general-avatar.jpg', online: 24 },
-    { id: 2, name: 'Development', avatar: '/path/to/dev-avatar.jpg', online: 12 },
-    { id: 3, name: 'Random', avatar: '/path/to/random-avatar.jpg', online: 8 },
-    { id: 1, name: 'General', avatar: '/path/to/general-avatar.jpg', online: 24 },
-    { id: 2, name: 'Development', avatar: '/path/to/dev-avatar.jpg', online: 12 },
-    { id: 3, name: 'Random', avatar: '/path/to/random-avatar.jpg', online: 8 },
-    { id: 1, name: 'General', avatar: '/path/to/general-avatar.jpg', online: 24 },
-    { id: 2, name: 'Development', avatar: '/path/to/dev-avatar.jpg', online: 12 },
-    { id: 3, name: 'Random', avatar: '/path/to/random-avatar.jpg', online: 8 },
-    { id: 1, name: 'General', avatar: '/path/to/general-avatar.jpg', online: 24 },
-    { id: 2, name: 'Development', avatar: '/path/to/dev-avatar.jpg', online: 12 },
-    { id: 3, name: 'Random', avatar: '/path/to/random-avatar.jpg', online: 8 },
-
-];
-
+import { useRoom } from '../hooks/useRoom';
+import CreateRoom from '../components/Rooms/CreateRoom';
+import useUI from '../hooks/useUI';
+import { BASE_AVATAR_URI } from '../config/constants';
 const App = () => {
+    const { rooms, createRoom, activeRoom, setActiveRoom } = useRoom()
+    const { setIsCreateRoomDialogOpen } = useUI()
 
     return (
         <Flex height="calc(100vh - 80px)" direction="row">
+            <CreateRoom />
             {/* Left Panel */}
             <Box
                 width="250px"
@@ -46,6 +37,7 @@ const App = () => {
                             Rooms
                         </Text>
                         <IconButton
+                            onClick={() => setIsCreateRoomDialogOpen(true)}
                             aria-label="Create Room"
                             bg="teal.500"
                             color="white"
@@ -67,7 +59,7 @@ const App = () => {
                         {rooms.map(room => (
                             <HStack
                                 cursor={"pointer"}
-                                key={room.id}
+                                key={room.seed}
                                 width="100%"
                                 justify="space-between"
                                 p={2}
@@ -76,11 +68,11 @@ const App = () => {
                                 gap={4}
                             >
                                 {/* Room Avatar and Info */}
-                                <Avatar name={room.name} src={room.avatar} />
+                                <Avatar name={room.name} src={`${BASE_AVATAR_URI}/${room.image}.jpg`} />
                                 <Box flex="1" textAlign="left">
                                     <Text fontWeight="bold">{room.name}</Text>
                                     <Text fontSize="sm" color="gray.400">
-                                        {room.online} online
+                                        {0} online
                                     </Text>
                                 </Box>
                             </HStack>

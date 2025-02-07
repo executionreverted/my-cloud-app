@@ -7,7 +7,7 @@ import { SECRET_CHANNEL_ID } from "../config/constants"
 import { generateTopicBySeed } from "../utils/generateTopicBySeed"
 import Hyperdrive from "hyperdrive"
 import useUser from "../hooks/useUser"
-import { Profile } from "../types/identity"
+import { Profile } from "../types/identity.types"
 export type ISeedContext = {
     seedPhrase: string,
     temporarySeedPhrase: string[],

@@ -9,20 +9,23 @@ import { MemoryRouter } from "react-router";
 import { SeedProvider } from './contexts/SeedProvider'
 import { UserProvider } from './contexts/UserProvider'
 import { UIProvider } from './contexts/UIContext.tsx'
+import { RoomsProvider } from './contexts/RoomsProvider'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ChakraProvider>
       <Peer2PeerProvider>
         <UserProvider>
           <SeedProvider>
-            <UIProvider>
-              <MemoryRouter>
-                {/* @ts-ignore */}
-                <pear-ctrl style={{ display: "none" }}></pear-ctrl>
-                <App />
-                <Toaster />
-              </MemoryRouter>
-            </UIProvider>
+            <RoomsProvider>
+              <UIProvider>
+                <MemoryRouter>
+                  {/* @ts-ignore */}
+                  <pear-ctrl style={{ display: "none" }}></pear-ctrl>
+                  <App />
+                  <Toaster />
+                </MemoryRouter>
+              </UIProvider>
+            </RoomsProvider>
           </SeedProvider>
         </UserProvider>
       </Peer2PeerProvider>
