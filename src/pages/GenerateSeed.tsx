@@ -23,7 +23,7 @@ export default function GenerateSeed() {
     const isValid = accepted ? alteredIndexes.every((index) => userInput[index] == temporarySeedPhrase[index]) : false
 
     function handleCreate() {
-        createNewSeedPhrase(20)
+        createNewSeedPhrase(24)
     }
 
     async function handleComplete(force = false) {

@@ -1,19 +1,20 @@
 import Hyperswarm from "hyperswarm"
 import { createContext, useEffect, useState } from "react"
-import { generateMnemonic } from "bip39"
+import { generateMnemonic, mnemonicToSeed } from "bip39"
 import { useP2P } from "../hooks/useP2P"
 import { SECRET_BEE_STORAGE_PATH, PROFILE_STORAGE_PATH, PROFILE_FILE_PATH } from "../config/storage"
 import { SECRET_CHANNEL_ID } from "../config/constants"
 import { generateTopicBySeed } from "../utils/generateTopicBySeed"
-import Hyperdrive from "hyperdrive"
 import useUser from "../hooks/useUser"
 import { Profile } from "../types/identity.types"
+import * as ethers from "ethers"
 export type ISeedContext = {
     seedPhrase: string,
     temporarySeedPhrase: string[],
     setSeedPhrase: (seedPhrase: string) => void,
     createNewSeedPhrase: (len: number) => void,
-    isSeedLoading: boolean
+    isSeedLoading: boolean,
+    wallet: ethers.HDNodeWallet | null,
 }
 
 export const SeedContext = createContext<ISeedContext>({
@@ -21,7 +22,8 @@ export const SeedContext = createContext<ISeedContext>({
     temporarySeedPhrase: [""],
     setSeedPhrase: (_seedPhrase: string) => { },
     createNewSeedPhrase: (_len: number) => { },
-    isSeedLoading: false
+    isSeedLoading: false,
+    wallet: null,
 })
 
 export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
@@ -30,7 +32,7 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
     const [seedPhrase, setSeedPhrase] = useState("")
     const [temporarySeedPhrase, setTemporarySeedPhrase] = useState<string[]>([])
     const [isSeedLoading, setIsSeedLoading] = useState(true)
-
+    const [wallet, setWallet] = useState<ethers.HDNodeWallet | null>(null)
 
     // WE INIT APP HERE
     useEffect(() => {
@@ -63,6 +65,7 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
             console.log("finalSeed", finalSeed)
             setSeedPhrase(() => finalSeed)
             setIsSeedLoading(false)
+            getMyPublicKey(finalSeed)
             return finalSeed
         } else {
             console.log("no seed")
@@ -114,15 +117,19 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     function createNewSeedPhrase(size: number = 20) {
-        const words = []
-        for (let i = 0; i < size; i++) {
-            words.push(generateMnemonic().split(" ")[0])
-        }
-        setTemporarySeedPhrase(words)
+        const entropy = ethers.randomBytes(32)
+        const phrase = ethers.Mnemonic.fromEntropy(entropy).phrase
+        console.log("phrase", phrase)
+        setTemporarySeedPhrase(phrase.split(' '))
     }
 
 
+    async function getMyPublicKey(seed: string) {
+        console.log("seeddddd", seed)
+        setWallet(ethers.HDNodeWallet.fromPhrase(seed))
+    }   
+
     return (
-        <SeedContext.Provider value={{ seedPhrase, temporarySeedPhrase, setSeedPhrase, createNewSeedPhrase, isSeedLoading }}>{children}</SeedContext.Provider>
+        <SeedContext.Provider value={{ seedPhrase, temporarySeedPhrase, setSeedPhrase, createNewSeedPhrase, isSeedLoading, wallet }}>{children}</SeedContext.Provider>
     )
 }

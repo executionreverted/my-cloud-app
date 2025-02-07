@@ -6,7 +6,7 @@ import Autopass from "autopass"
 import Corestore from "corestore";
 import Hypercore from "hypercore";
 import RPC from "protomux-rpc"
-
+import b4a from "b4a"
 import { SECRET_AUTOPASS_CORE_STORAGE_PATH } from "../config/storage";
 
 // @ts-ignore
@@ -24,10 +24,13 @@ export type IPeer2PeerContext = {
     autopasses?: { [key: string]: any },
     rpcs?: { [key: string]: any },
     getBee: (name: string) => Promise<any>
-    getAutopass: (corestorePath?: string) => Promise<any>
+    getAutopass: (corestorePath?: string, updateCallback?: (autopass: Autopass) => void) => Promise<any>
     getRPC: (key: string) => Promise<any>
     getCore: (storagePath: string) => Promise<any>
     getDrive: (storagePath: string) => Promise<any>
+    encodeTopic: (topic: string) => Promise<string>
+    activePeers: { [key: string]: number }
+    setActivePeers: any
 }
 
 export const Peer2PeerProviderState = createContext<IPeer2PeerContext>({
@@ -43,11 +46,15 @@ export const Peer2PeerProviderState = createContext<IPeer2PeerContext>({
     getAutopass: () => Promise.resolve(null) as any,
     getRPC: () => Promise.resolve(null) as any,
     getCore: () => Promise.resolve(null) as any,
-    getDrive: () => Promise.resolve(null) as any
+    getDrive: () => Promise.resolve(null) as any,
+    encodeTopic: () => Promise.resolve('') as any,
+    activePeers: {},
+    setActivePeers: (() => { }) as any
 })
 
 export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) => {
     const [appVersion, setAppVersion] = useState<any>(null)
+    const [activePeers, setActivePeers] = useState<{ [key: string]: number }>({})
     const swarms = useRef<{ [key: string]: Hyperswarm.Discovery }>({})
     const cores = useRef<{ [key: string]: Hypercore }>({})
     const drives = useRef<{ [key: string]: Hyperdrive }>({})
@@ -108,7 +115,7 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         return bee;
     }
 
-    async function getAutopass(name: string = SECRET_AUTOPASS_CORE_STORAGE_PATH): Promise<Autopass> {
+    async function getAutopass(name: string = SECRET_AUTOPASS_CORE_STORAGE_PATH, updateCallback?: (autopass: Autopass) => void): Promise<Autopass> {
         if (autopasses.current[name]) {
             // if instance exists, return it
             return autopasses.current[name]
@@ -127,6 +134,10 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
             }
         } catch (error) {
             console.log("error", error)
+        }
+
+        if (updateCallback) {
+            autopasses.current[name].on('update', updateCallback)
         }
 
         return autopasses.current[name]
@@ -179,6 +190,11 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         return drives.current[storagePath]
     }
 
+
+    async function encodeTopic(topic: string): Promise<string> {
+        return b4a.from(topic.slice(0, 64), 'hex')
+    }
+
     return <Peer2PeerProviderState.Provider value={{
         swarms: swarms.current,
         cores: cores.current,
@@ -193,6 +209,9 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         getRPC,
         getCore,
         getDrive,
-        rpcs: rpcs.current
+        rpcs: rpcs.current,
+        encodeTopic,
+        activePeers,
+        setActivePeers
     }}>{children}</Peer2PeerProviderState.Provider>
 }   

@@ -1,22 +1,25 @@
 export interface ChatRoom {
-    id: string;
+    seed: string;
     name: string;
     description: string;
     image: string;
-    messageLength: number;
-    lastMessageTime: string;
 }
 
 export interface ChatMessage {
-    id: string;
     content: string;
     senderPublicKey: string;
-    timestamp: string;
+    timestamp: number;
     files: ChatFile[];
 }
 
 export interface ChatFile {
     id: string;
     name: string;
+    base64: string;
 }
 
+export interface RoomAutobaseMetadata {
+    lastActive: string;
+    messageLength: string;
+    [key: string]: any;
+}

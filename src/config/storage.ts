@@ -10,7 +10,7 @@ export const SECRET_AUTOPASS_STORAGE_PATH = Pear.config.storage + "/secret-autop
 
 export const ROOMS_AUTOPASS_PATH = Pear.config.storage + "/rooms"
 export const ROOMS_AUTOPASS_KEY = "rooms"
-
+export const ROOMS_AUTOPASS_METADATA_KEY = "meta"
 export const PROFILE_STORAGE_PATH = Pear.config.storage + "/profile"
 export const PROFILE_FILE_PATH = "/meta/profile.json"
 export async function getAppKey() {

@@ -12,7 +12,7 @@ import { useNavigate } from "react-router"
 export default function Import() {
     const { getBee, getAutopass } = useP2P()
     const { seedPhrase } = useSeed()
-    const [importedSeedPhrase, setImportedSeedPhrase] = useState<string[]>(Array(20).fill(""))
+    const [importedSeedPhrase, setImportedSeedPhrase] = useState<string[]>(Array(24).fill(""))
     const [isLoading, setIsLoading] = useState(false)
     const navigate = useNavigate()
     useEffect(() => {

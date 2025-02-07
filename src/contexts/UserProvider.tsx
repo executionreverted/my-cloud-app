@@ -56,5 +56,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         return updatedProfile
     }
 
+ 
     return <UserContext.Provider value={{ getProfile, updateProfile, profile, setProfile }}>{children}</UserContext.Provider>
 }

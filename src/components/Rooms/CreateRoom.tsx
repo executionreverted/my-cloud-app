@@ -21,7 +21,7 @@ import { toaster } from "../ui/toaster"
 import { useRoom } from "../../hooks/useRoom"
 const CreateRoom = () => {
     const { isCreateRoomDialogOpen, setIsCreateRoomDialogOpen } = useUI()
-    const { createRoom } = useRoom()
+    const { createRoom, setActiveRoom } = useRoom()
     const [selectedImage, setSelectedImage] = useState<string>("0")
     const [roomName, setRoomName] = useState<string>("")
     const [roomDescription, setRoomDescription] = useState<string>("")
@@ -42,8 +42,11 @@ const CreateRoom = () => {
 
         const room = await createRoom(newRoom)
 
-
         setIsLoading(false)
+        setIsCreateRoomDialogOpen(false)
+        if (room) {
+            setActiveRoom(room)
+        }
     }
 
     return (
@@ -69,7 +72,7 @@ const CreateRoom = () => {
                 </DialogBody>
                 <DialogFooter>
                     <DialogActionTrigger disabled={isLoading} asChild>
-                        <Button disabled={isLoading} variant="outline">Cancel</Button>
+                        <Button onClick={() => setIsCreateRoomDialogOpen(false)} disabled={isLoading} variant="outline">Cancel</Button>
                     </DialogActionTrigger>
                     <Button disabled={isLoading} loading={isLoading} onClick={handleCreateRoom}>Create {roomName}</Button>
                 </DialogFooter>
