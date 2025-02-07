@@ -44,5 +44,6 @@ export default defineConfig({
       'sodium-native': 'sodium-plus',
       'sodium': 'sodium-plus',
     }
-  }
+  },
+  publicDir: "./src/assets",
 })

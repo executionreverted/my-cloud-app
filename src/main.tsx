@@ -7,20 +7,25 @@ import { Toaster } from "./components/ui/toaster"
 import { Peer2PeerProvider } from './contexts/Peer2PeerProvider'
 import { MemoryRouter } from "react-router";
 import { SeedProvider } from './contexts/SeedProvider'
-
+import { UserProvider } from './contexts/UserProvider'
+import { UIProvider } from './contexts/UIContext.tsx'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Peer2PeerProvider>
-      <SeedProvider>
-        <ChakraProvider>
-          <MemoryRouter>
-            {/* @ts-ignore */}
-            <pear-ctrl style={{ display: "none" }}></pear-ctrl>
-            <App />
-            <Toaster />
-          </MemoryRouter>
-        </ChakraProvider>
-      </SeedProvider>
-    </Peer2PeerProvider>
+    <ChakraProvider>
+      <Peer2PeerProvider>
+        <UserProvider>
+          <SeedProvider>
+            <UIProvider>
+              <MemoryRouter>
+                {/* @ts-ignore */}
+                <pear-ctrl style={{ display: "none" }}></pear-ctrl>
+                <App />
+                <Toaster />
+              </MemoryRouter>
+            </UIProvider>
+          </SeedProvider>
+        </UserProvider>
+      </Peer2PeerProvider>
+    </ChakraProvider>
   </StrictMode>,
 )

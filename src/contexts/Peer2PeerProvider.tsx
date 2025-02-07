@@ -5,6 +5,8 @@ import Hyperbee from "hyperbee";
 import Autopass from "autopass"
 import Corestore from "corestore";
 import Hypercore from "hypercore";
+import RPC from "protomux-rpc"
+
 import { SECRET_AUTOPASS_CORE_STORAGE_PATH } from "../config/storage";
 
 // @ts-ignore
@@ -20,8 +22,12 @@ export type IPeer2PeerContext = {
     cores?: { [key: string]: any },
     bees?: { [key: string]: any },
     autopasses?: { [key: string]: any },
+    rpcs?: { [key: string]: any },
     getBee: (name: string) => Promise<any>
     getAutopass: (name: string) => Promise<any>
+    getRPC: (key: string) => Promise<any>
+    getCore: (storagePath: string) => Promise<any>
+    getDrive: (storagePath: string) => Promise<any>
 }
 
 export const Peer2PeerProviderState = createContext<IPeer2PeerContext>({
@@ -31,9 +37,13 @@ export const Peer2PeerProviderState = createContext<IPeer2PeerContext>({
     drives: {},
     swarms: {},
     corestores: {},
+    rpcs: {},
     setAppVersion: () => { },
     getBee: () => Promise.resolve(null) as any,
-    getAutopass: () => Promise.resolve(null) as any
+    getAutopass: () => Promise.resolve(null) as any,
+    getRPC: () => Promise.resolve(null) as any,
+    getCore: () => Promise.resolve(null) as any,
+    getDrive: () => Promise.resolve(null) as any
 })
 
 export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) => {
@@ -44,6 +54,8 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
     const bees = useRef<{ [key: string]: Hyperbee }>({})
     const autopasses = useRef<{ [key: string]: Autopass }>({})
     const corestores = useRef<{ [key: string]: Corestore }>({})
+    const rpcs = useRef<{ [key: string]: RPC }>({})
+
     useEffect(() => {
         Pear.teardown(onTeardown)
     }, [])
@@ -70,6 +82,10 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
             console.log('Destroying autopass: ', autopass);
             await autopass.close()
         }
+        for (const rpc of Object.values(rpcs.current)) {
+            console.log('Destroying rpc: ', rpc);
+            await rpc.close()
+        }
     }
 
     async function getBee(name: string): Promise<Hyperbee> {
@@ -78,7 +94,6 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         }
 
         let corestore = corestores.current[name]
-        console.log(name);
 
         if (!corestore) {
             corestores.current[name] = new Hypercore(name)
@@ -102,7 +117,6 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         autopasses.current[name] = new Autopass(new Corestore(SECRET_AUTOPASS_CORE_STORAGE_PATH))
         await autopasses.current[name].ready()
         const inviteFile = SECRET_AUTOPASS_CORE_STORAGE_PATH + "/invite.json"
-        console.log("fs", fs)
         try {
             if (!fs.existsSync(inviteFile)) {
                 console.log("Creating invite file.")
@@ -115,7 +129,51 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         return autopasses.current[name]
     }
 
-    async function joinSecretChannel(): Promise<Corestore> {
+    async function getRPC(key: string): Promise<RPC> {
+        if (rpcs.current[key]) {
+            return rpcs.current[key]
+        }
+
+        const rpc = new RPC()
+        rpcs.current[key] = rpc
+        return rpc
+    }
+
+    async function getCore(storagePath: string): Promise<Hypercore> {
+        if (cores.current[storagePath]) {
+            return cores.current[storagePath]
+        }
+
+        const core = new Hypercore(storagePath)
+        cores.current[storagePath] = core
+        return core
+    }
+
+    async function getCoreStore(storagePath: string): Promise<Corestore> {
+        if (corestores.current[storagePath]) {
+            console.log("corestore already exists", corestores.current[storagePath])
+            return corestores.current[storagePath]
+        }
+        
+        const corestore = new Corestore(storagePath)
+        await corestore.ready()
+        corestores.current[storagePath] = corestore
+        return corestores.current[storagePath]
+    }
+
+    async function getDrive(storagePath: string): Promise<Hyperdrive> {
+        console.log("getting drive", storagePath)
+        if (drives.current[storagePath]) {
+            console.log("drive already exists", drives.current[storagePath])
+            return drives.current[storagePath]
+        }
+        console.log("getting core store", storagePath)
+        const core = await getCoreStore(storagePath)
+        const drive = new Hyperdrive(core)
+        await drive.ready()
+        console.log("drive", drive)
+        drives.current[storagePath] = drive
+        return drives.current[storagePath]
     }
 
     return <Peer2PeerProviderState.Provider value={{
@@ -128,6 +186,10 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         getBee,
         getAutopass,
         appVersion,
-        setAppVersion
+        setAppVersion,
+        getRPC,
+        getCore,
+        getDrive,
+        rpcs: rpcs.current
     }}>{children}</Peer2PeerProviderState.Provider>
 }   

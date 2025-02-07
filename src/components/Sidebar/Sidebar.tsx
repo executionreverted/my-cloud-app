@@ -33,6 +33,10 @@ import { MenuContent, MenuRoot, MenuSeparator, MenuTrigger } from '../ui/menu'
 import { Avatar } from '../ui/avatar'
 import { IoChatbubble } from 'react-icons/io5'
 import { useNavigate } from 'react-router'
+import useUser from '../../hooks/useUser'
+import useUI from '../../hooks/useUI'
+import EditProfile from '../EditProfile/EditProfile'
+import { BASE_AVATAR_URI } from '../../config/constants'
 interface LinkItemProps {
     name: string
     icon: IconType
@@ -165,6 +169,8 @@ const NavItem = ({ icon, children, ...rest }: NavItemProps) => {
 }
 
 const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
+    const { profile } = useUser()
+    const { openEditProfile, setOpenEditProfile } = useUI()
     return (
         <Flex
             ml={{ base: 0, md: 16 }}
@@ -197,14 +203,15 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
 
             <HStack h={"100%"} gap={{ base: '0', md: '6' }}>
                 <IconButton size="lg" variant="ghost" aria-label="open menu"  ><FiBell /></IconButton>
-                <Flex h={"100%"} border={"1px solid red"} alignItems={'center'}>
+                <Flex style={{ "-webkit-app-region": "no-drag", "-webkit-user-drag": "none" }} h={"100%"} alignItems={'center'}>
                     <MenuRoot>
                         <MenuTrigger height={"100%"} asChild>
                             <HStack h={"100%"}>
                                 <Avatar
                                     size={'sm'}
+                                    objectFit={"cover"}
                                     src={
-                                        'https://images.unsplash.com/photo-1619946794135-5bc917a27793?ixlib=rb-0.3.5&q=80&fm=jpg&crop=faces&fit=crop&h=200&w=200&s=b616b2c5b373a80ffc9636ba24f7a4a9'
+                                        typeof profile?.image === "string" ? `${BASE_AVATAR_URI}${profile?.image}.jpg` : 'https://images.unsplash.com/photo-1619946794135-5bc917a27793?ixlib=rb-0.3.5&q=80&fm=jpg&crop=faces&fit=crop&h=200&w=200&s=b616b2c5b373a80ffc9636ba24f7a4a9'
                                     }
                                 />
                                 <VStack h={"100%"} as={"button"}
@@ -213,9 +220,9 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
                                     justifyContent={"center"}
                                     gap="1px"
                                     ml="2" px="2">
-                                    <Text fontSize="sm">Justina Clark</Text>
+                                    <Text fontSize="sm">{profile?.name || "Unknown User"}</Text>
                                     <Text fontSize="xs" color="gray.600">
-                                        Admin
+                                        {profile?.status || "Unknown Status"}
                                     </Text>
                                 </VStack>
                                 <Box display={{ base: 'none', md: 'flex' }}>
@@ -226,7 +233,7 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
                         <MenuContent
                             bg={useColorModeValue('white', 'gray.900')}
                             borderColor={useColorModeValue('gray.200', 'gray.700')}>
-                            <MenuItem value="Profile">Profile</MenuItem>
+                            <MenuItem onClick={() => setOpenEditProfile(true)} value="Edit Profile">Edit Profile</MenuItem>
                             <MenuItem value="Settings">Settings</MenuItem>
                             <MenuItem value="Billing">Billing</MenuItem>
                             <MenuSeparator />
@@ -244,6 +251,7 @@ const SidebarWithHeader = ({ children }: { children: React.ReactNode }) => {
 
     return (
         <Box h="100vh" overflow={"hidden"} bg={useColorModeValue('gray.100', 'gray.900')}>
+            <EditProfile />
             <SidebarContent open={open} onClose={() => onClose} display={{ base: 'none', md: 'block' }} />
             <Drawer.Root
                 open={open}

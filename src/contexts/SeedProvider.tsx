@@ -2,11 +2,12 @@ import Hyperswarm from "hyperswarm"
 import { createContext, useEffect, useState } from "react"
 import { generateMnemonic } from "bip39"
 import { useP2P } from "../hooks/useP2P"
-import { SECRET_BEE_STORAGE_PATH } from "../config/storage"
+import { SECRET_BEE_STORAGE_PATH, PROFILE_STORAGE_PATH, PROFILE_FILE_PATH } from "../config/storage"
 import { SECRET_CHANNEL_ID } from "../config/constants"
 import { generateTopicBySeed } from "../utils/generateTopicBySeed"
-
-
+import Hyperdrive from "hyperdrive"
+import useUser from "../hooks/useUser"
+import { Profile } from "../types/identity"
 export type ISeedContext = {
     seedPhrase: string,
     temporarySeedPhrase: string[],
@@ -23,22 +24,32 @@ export const SeedContext = createContext<ISeedContext>({
     isSeedLoading: false
 })
 
-
-
 export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
-    const { getBee, swarms } = useP2P()
+    const { getBee, swarms, getCore, getRPC, getDrive } = useP2P()
+    const { getProfile, updateProfile, profile, setProfile } = useUser()
     const [seedPhrase, setSeedPhrase] = useState("")
     const [temporarySeedPhrase, setTemporarySeedPhrase] = useState<string[]>([])
     const [isSeedLoading, setIsSeedLoading] = useState(true)
 
+
+    // WE INIT APP HERE
     useEffect(() => {
         if (!seedPhrase) {
-            console.log("initializing seed")
-            initSeed().then(initPrivateChannel)
+            initApp()
         }
     }, [])
 
+    async function initApp() {
+        if (!seedPhrase) {
+            console.log("initializing hypers")
+            await initSeed()
+            await initProfileDrive()
+            await initPrivateChannel()
+        }
+    }
+
     async function initSeed() {
+        console.log("initializing seed")
         const bee = await getBee(SECRET_BEE_STORAGE_PATH)
         if (!bee) {
             setIsSeedLoading(false)
@@ -47,13 +58,10 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
 
         const seed = await bee.get("seed")
         if (seed && seed.value) {
-            console.log("seed", seed)
             const parsePhrase = JSON.parse(seed.value)
-            console.log("parsePhrase", parsePhrase)
             const finalSeed = parsePhrase.seedPhrase.join(' ')
             console.log("finalSeed", finalSeed)
             setSeedPhrase(() => finalSeed)
-            console.log("seedPhrase", seedPhrase)
             setIsSeedLoading(false)
             return finalSeed
         } else {
@@ -64,6 +72,7 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     async function initPrivateChannel() {
+        console.log("initializing private channel")
         let phrase = seedPhrase
         if (!phrase) {
             console.log("refetch seed")
@@ -84,6 +93,24 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
 
         await swarm.join(topic)
         swarms[SECRET_CHANNEL_ID] = swarm
+    }
+
+    async function initProfileDrive() {
+        console.log("initializing profile drive")
+        const profile = await getProfile()
+        if (profile) {
+            console.log("profile", profile)
+            return profile
+        }
+        console.log("no profile")
+        const initProfile: Profile = {
+            name: "UnknownUser",
+            status: "Chilling",
+            image: "",
+        }
+        const updatedProfile = await updateProfile(initProfile)
+        console.log("updatedProfile", updatedProfile)
+        return updatedProfile
     }
 
     function createNewSeedPhrase(size: number = 20) {
