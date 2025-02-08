@@ -8,7 +8,6 @@ import Hypercore from "hypercore";
 import RPC from "protomux-rpc"
 import b4a from "b4a"
 import { SECRET_AUTOPASS_CORE_STORAGE_PATH } from "../config/storage";
-
 // @ts-ignore
 import fs from 'fs'
 
@@ -143,12 +142,13 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         return autopasses.current[name]
     }
 
-    async function getRPC(key: string): Promise<RPC> {
+    async function getRPC(conn: any): Promise<RPC> {
+        const key = conn.remotePublicKey.toString('hex')
         if (rpcs.current[key]) {
             return rpcs.current[key]
         }
 
-        const rpc = new RPC()
+        const rpc = new RPC(conn)
         rpcs.current[key] = rpc
         return rpc
     }

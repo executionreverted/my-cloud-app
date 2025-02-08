@@ -29,7 +29,7 @@ import { useP2P } from '../hooks/useP2P';
 const App = () => {
     const { seedPhrase, wallet } = useSeed()
     const { activePeers } = useP2P()
-    const { rooms, roomsMetadata, activeRoom, setActiveRoom, sendMessage, generateRoomInvitationCode, getRoomMetadata, joinRoomWithInvite } = useRoom()
+    const { syncInProgress, syncedRooms, rooms, roomsMetadata, activeRoom, setActiveRoom, sendMessage, generateRoomInvitationCode, getRoomMetadata, joinRoomWithInvite } = useRoom()
     const { setIsCreateRoomDialogOpen, isJoinRoomDialogOpen, setIsJoinRoomDialogOpen } = useUI()
 
     const [newMessage, setNewMessage] = useState("")
@@ -258,7 +258,7 @@ const App = () => {
                         onKeyDown={(e) => {
 
                             if (e.key === "Enter") {
-                                if (newMessage.length === 0) {
+                                if (newMessage.length === 0 || syncInProgress[activeRoom?.seed || ""]) {
                                     return
                                 }
                                 e.preventDefault()
@@ -267,7 +267,7 @@ const App = () => {
                         }}
                         onChange={(e) => setNewMessage(e.target.value)}
                     />
-                    <IconButton rounded={"full"} my={"auto"} alignSelf={"center"} justifySelf={"flex-start"} onClick={sendInRoom} colorScheme="teal" size="lg">
+                    <IconButton disabled={newMessage.length === 0 || syncInProgress[activeRoom?.seed || ""]} rounded={"full"} my={"auto"} alignSelf={"center"} justifySelf={"flex-start"} onClick={sendInRoom} colorScheme="teal" size="lg">
                         <FiSend />
                     </IconButton>
                 </HStack>

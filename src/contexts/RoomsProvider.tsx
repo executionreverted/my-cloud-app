@@ -6,6 +6,8 @@ import { toaster } from "../components/ui/toaster"
 import { deterministicHex } from "../utils/deterministicHex"
 import Hyperswarm from "hyperswarm"
 import { ChatMessage, RoomAutobaseMetadata } from "../types/chat.types"
+import useUser from "../hooks/useUser"
+import { Buffer } from "buffer"
 export interface RoomsContextType {
     rooms: Room[]
     setRooms: (rooms: Room[]) => void
@@ -18,10 +20,12 @@ export interface RoomsContextType {
     prepareMessage: (message: ChatMessage) => string | null
     sendMessage: (roomId: string, message: ChatMessage) => Promise<boolean>
     generateRoomInvitationCode: (room: Room) => string
-    joinRoomWithInvite: (invitationKey: string) => Promise<Room | null>
+    joinRoomWithInvite: (invitationKey: string, customGreeting?: string) => Promise<Room | null>
     getRoomMetadata: (roomId: string) => Promise<RoomAutobaseMetadata>
     getMessageFromRoom: (roomId: string, messageId: string) => Promise<ChatMessage | null>
     roomsMetadata: { [key: string]: RoomAutobaseMetadata }
+    syncInProgress: { [key: string]: boolean }
+    syncedRooms: { [key: string]: boolean }
 }
 
 export const RoomsContext = createContext<RoomsContextType>({
@@ -39,17 +43,22 @@ export const RoomsContext = createContext<RoomsContextType>({
     joinRoomWithInvite: null as any,
     getRoomMetadata: null as any,
     getMessageFromRoom: null as any,
-    roomsMetadata: {}
+    roomsMetadata: {},
+    syncInProgress: {} as { [key: string]: boolean },
+    syncedRooms: {} as { [key: string]: boolean }
 })
 
 
 export const RoomsProvider = ({ children }: { children: React.ReactNode }) => {
-    const { getAutopass, swarms, encodeTopic, setActivePeers } = useP2P()
+    const { getAutopass, swarms, encodeTopic, setActivePeers, getRPC } = useP2P()
+    const { getProfile } = useUser()
     const [rooms, setRooms] = useState<Room[]>([])
     const [roomsMetadata, setRoomsMetadata] = useState<{ [key: string]: RoomAutobaseMetadata }>({})
     const [currentRoom, setCurrentRoom] = useState<Room | null>(null)
     const [activeRoom, setActiveRoom] = useState<Room | null>(null)
     const messageCaches = useRef<{ [key: string]: { [key: string]: ChatMessage } }>({})
+    const syncedRooms = useRef<{ [key: string]: boolean }>({})
+    const syncInProgress = useRef<{ [key: string]: boolean }>({})
     useEffect(() => {
         getRoomsFromAutobase()
     }, [])
@@ -136,6 +145,65 @@ export const RoomsProvider = ({ children }: { children: React.ReactNode }) => {
         return roomBase64
     }
 
+    async function attemptToSync(rpc: any, roomId: string, _myMessageLength: number, _peerMessageLength: number) {
+        if (syncInProgress.current[roomId]) {
+            return
+        }
+        syncInProgress.current[roomId] = true;
+        let myMessageLength = _myMessageLength;
+        let peerMessageLength = _peerMessageLength;
+        while (myMessageLength < peerMessageLength) {
+            try {
+                const reply = await rpc.request("askMessage", Buffer.from(JSON.stringify({ messageId: myMessageLength })))
+                const message = JSON.parse(reply)
+                console.log("syncing message", message)
+                console.log("Attempting to get message from room", roomId, myMessageLength, peerMessageLength)
+
+                if (!message || !message.content || !message.senderPublicKey || !message.timestamp) {
+                    console.log("no message")
+                    myMessageLength++
+                    continue
+                }
+                const existingMessage = await getMessageFromRoom(roomId, myMessageLength)
+                console.log("existingMessage", existingMessage)
+                if (existingMessage) {
+                    myMessageLength++
+                    await new Promise(resolve => setTimeout(resolve, 300))
+                    continue
+                } else {
+                    await saveMessageToRoom(roomId, message, true, myMessageLength)
+                    myMessageLength++
+                }
+                await new Promise(resolve => setTimeout(resolve, 300))
+            } catch (error) {
+                console.log("error", error)
+                await new Promise(resolve => setTimeout(resolve, 1000))
+            }
+        }
+        if (myMessageLength >= peerMessageLength) {
+            const roomMeta = await getAutopass(ROOMS_AUTOPASS_PATH + `-${roomId}`)
+            roomMeta.add(ROOMS_AUTOPASS_METADATA_KEY, {
+                messageLength: myMessageLength,
+                lastActive: Date.now()
+            })
+            syncInProgress.current[roomId] = false
+            syncedRooms.current[roomId] = true
+
+            setRoomsMetadata(prev => ({
+                ...prev,
+                [roomId]: {
+                    messageLength: myMessageLength.toString(),
+                    lastActive: Date.now().toString()
+                }
+            }))
+
+        } else {
+            syncInProgress.current[roomId] = false
+            attemptToSync(rpc, roomId, myMessageLength, peerMessageLength)
+        }
+
+    }
+
 
     async function joinRoom(roomId: string): Promise<Hyperswarm.Discovery> {
         const topic = deterministicHex(roomId)
@@ -149,8 +217,71 @@ export const RoomsProvider = ({ children }: { children: React.ReactNode }) => {
         swarm = new Hyperswarm()
         swarm.roomId = roomId
 
-        swarm.on('connection', (conn) => {
+        const profile = await getProfile()
+
+        swarm.on('connection', async (conn) => {
             console.log("connection", conn)
+            const rpc = await getRPC(conn)
+
+            rpc.respond('whoareyou', async req => {
+                console.log('[whoareyou received]')
+                return Buffer.from(JSON.stringify(profile))
+            })
+
+            rpc.respond('askRoomLength', async req => {
+                console.log('[askRoomLength received]', req)
+                console.log('[askRoomLength received]', req)
+                console.log('[askRoomLength received]', req)
+                console.log('[askRoomLength received]', req)
+                const roomAutopass = await getAutopass(ROOMS_AUTOPASS_PATH + `-${swarm.roomId}`)
+                const meta = await roomAutopass.get(ROOMS_AUTOPASS_METADATA_KEY)
+                console.log("meta", meta)
+                console.log("meta", meta)
+                return Buffer.from(JSON.stringify(meta))
+            })
+
+            rpc.respond('askMessage', async req => {
+                if (!req) {
+                    return null
+                }
+                console.log("askMessagereq", req)
+                console.log("askMessage", req)
+                console.log("askMessage", req)
+                console.log("askMessage", req)
+                const peerAskingForMessage = JSON.parse(req.toString())
+                const messageId = peerAskingForMessage.messageId
+                const message = await getMessageFromRoom(swarm.roomId, messageId)
+                const stringifiedMessage = JSON.stringify(message)
+                console.log("stringifiedMessage", stringifiedMessage)
+                return Buffer.from(stringifiedMessage)
+            })
+
+            const whoIsThereResponse = await rpc.request('whoareyou')
+            console.log("whoIsThereResponse", whoIsThereResponse.toString("utf8").trim())
+            const whoIsThere = JSON.parse(whoIsThereResponse as any)
+            console.log("whoIsThere", whoIsThere)
+
+            const peerMessageLengthResponse = await rpc.request('askRoomLength')
+            console.log("peerMessageLengthResponse", peerMessageLengthResponse.toString("utf8").trim())
+            const peerRoomMetadata = (JSON.parse(peerMessageLengthResponse))
+            const peerMessageLength = parseInt(peerRoomMetadata.messageLength)
+            console.log("peerMessageLength", peerMessageLength)
+            console.log("peerMessageLength", peerMessageLength)
+            console.log("peerMessageLength", peerMessageLength)
+            const myLocalRoomMetadata = await getRoomMetadata(swarm.roomId)
+
+            console.log("myLocalRoomMetadata", myLocalRoomMetadata)
+
+            if (parseInt(myLocalRoomMetadata.messageLength) < peerMessageLength) {
+                try {
+                    console.log("attempting to sync", myLocalRoomMetadata.messageLength, peerMessageLength)
+                    await attemptToSync(rpc, swarm.roomId, parseInt(myLocalRoomMetadata.messageLength), peerMessageLength)
+                } catch (error) {
+                    console.log("error", error)
+                }
+            } else {
+                syncedRooms.current[swarm.roomId] = true
+            }
         })
 
         swarm.on('update', () => {
@@ -161,56 +292,19 @@ export const RoomsProvider = ({ children }: { children: React.ReactNode }) => {
         })
 
         swarm.on('connection', (conn) => {
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-            console.log('connection', conn)
-
             conn.on('data', async (data) => {
-                const payload = JSON.parse(data.toString())
-                if (payload.command === "message") {
-                    const message = payload.message
-                    console.log('received message from peer in room:', swarm.roomId, message)
-                    await saveMessageToRoom(swarm.roomId, message)
+                if (!data) {
+                    return
+                }
+                try {
+                    const payload = JSON.parse(data.toString())
+                    if (payload.command === "message") {
+                        const message = payload.message
+                        console.log('received message from peer in room:', swarm.roomId, message)
+                        await saveMessageToRoom(swarm.roomId, message)
+                    }
+                } catch (error) {
+                    console.log("error", error)
                 }
             })
 
@@ -221,7 +315,6 @@ export const RoomsProvider = ({ children }: { children: React.ReactNode }) => {
         swarms[roomId] = swarm
         return swarm
     }
-
 
     const prepareMessage = (message: ChatMessage) => {
         const sanitizedMessage = message.content.trim()
@@ -262,21 +355,23 @@ export const RoomsProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }
 
-    const saveMessageToRoom = async (roomId: string, message: ChatMessage) => {
+    const saveMessageToRoom = async (roomId: string, message: ChatMessage, disableMetaUpdate: boolean = false, messageId: number = undefined) => {
         console.log("saveMessageToRoom", roomId, message);
         const roomAutopass = await getAutopass(ROOMS_AUTOPASS_PATH + `-${roomId}`)
         const meta = await roomAutopass.get(ROOMS_AUTOPASS_METADATA_KEY)
         console.log("meta", meta);
         const lastMessageId = meta.messageLength
         console.log("lastMessageId", lastMessageId);
-        await roomAutopass.add(lastMessageId, message)
+        await roomAutopass.add(messageId != undefined ? messageId.toString() : lastMessageId, message)
         const newLastMessageId = (parseInt(lastMessageId) + 1).toString()
 
-        await roomAutopass.add(ROOMS_AUTOPASS_METADATA_KEY, {
-            ...meta,
-            messageLength: newLastMessageId,
-            lastActive: Date.now(),
-        })
+        if (!disableMetaUpdate) {
+            await roomAutopass.add(ROOMS_AUTOPASS_METADATA_KEY, {
+                ...meta,
+                messageLength: newLastMessageId,
+                lastActive: Date.now(),
+            })
+        }
         setRoomsMetadata(prev => ({
             ...prev,
             [roomId]: {
@@ -321,5 +416,5 @@ export const RoomsProvider = ({ children }: { children: React.ReactNode }) => {
         return message
     }
 
-    return <RoomsContext.Provider value={{ rooms, setRooms, currentRoom, setCurrentRoom, createRoom, joinRoom, activeRoom, setActiveRoom, prepareMessage, sendMessage, generateRoomInvitationCode, joinRoomWithInvite, getRoomMetadata, getMessageFromRoom, roomsMetadata }}>{children}</RoomsContext.Provider>
+    return <RoomsContext.Provider value={{ syncInProgress, syncedRooms, rooms, setRooms, currentRoom, setCurrentRoom, createRoom, joinRoom, activeRoom, setActiveRoom, prepareMessage, sendMessage, generateRoomInvitationCode, joinRoomWithInvite, getRoomMetadata, getMessageFromRoom, roomsMetadata }}>{children}</RoomsContext.Provider>
 }

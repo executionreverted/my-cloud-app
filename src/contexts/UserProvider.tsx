@@ -26,24 +26,29 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
     }, [])
 
     async function getProfile() {
-        const drive = await getDrive(PROFILE_STORAGE_PATH)
-        const profile = await drive.get(PROFILE_FILE_PATH)
         if (profile) {
+            return profile
+        }
+        const initProfile: Profile = {
+            name: "UnknownUser",
+            status: "Chilling",
+            image: "0",
+        }
+        const drive = await getDrive(PROFILE_STORAGE_PATH)
+        const profile$ = await drive.get(PROFILE_FILE_PATH)
+        if (profile$) {
             try {
-                const decoded = profile.toString("utf-8")
+                const decoded = profile$.toString()
                 setProfile(JSON.parse(decoded))
             } catch (error) {
                 console.error(error)
-                const initProfile: Profile = {
-                    name: "UnknownUser",
-                    status: "Chilling",
-                    image: "",
-                }
+
                 setProfile(initProfile)
                 updateProfile(initProfile)
+                return initProfile
             }
         }
-        return profile
+        return initProfile
     }
 
     async function updateProfile(profile: Profile) {
@@ -56,6 +61,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         return updatedProfile
     }
 
- 
+
     return <UserContext.Provider value={{ getProfile, updateProfile, profile, setProfile }}>{children}</UserContext.Provider>
 }

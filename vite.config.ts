@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import circleDependency from 'vite-plugin-circular-dependency'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), nodePolyfills({
@@ -11,9 +13,9 @@ export default defineConfig({
       'fs': 'memfs'
     },
     globals: {
-      Buffer: true,
       global: true,
       process: true,
+      Buffer: true,
     },
   }),
   circleDependency({
@@ -23,7 +25,16 @@ export default defineConfig({
   base: "/dist/",
   optimizeDeps: {
     esbuildOptions: {
-      target: 'node20'
+      target: 'node20',
+      define: {
+        global: 'globalThis'
+      },
+      // Enable esbuild polyfill plugins
+      plugins: [
+        NodeGlobalsPolyfillPlugin({
+          buffer: true,
+        })
+      ]
     },
     include: ["random-access-file", "protocol-buffers-encodings", "fs"],
     exclude: ['sodium-universal', 'sodium-native', 'sodium']
@@ -35,7 +46,7 @@ export default defineConfig({
     },
     rollupOptions: {
       logLevel: "debug",
-      external: ['sodium-universal', 'sodium-native', 'sodium', 'udx-native', "random-access-file", "hyperdht"]
+      external: ['sodium-universal', 'sodium-native', 'sodium', 'udx-native', "random-access-file", "hyperdht", "buffer"]
     },
   },
   resolve: {
