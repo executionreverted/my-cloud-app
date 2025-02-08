@@ -64,8 +64,12 @@ const CreateRoom = () => {
                     </Field>
                     <Field label="Room Image">
                         <Wrap gap={0}>
-                            {Array.from({ length: 10 }).fill(1).map((_: string, index) => (
-                                <Image cursor={"pointer"} border={selectedImage === _ ? "2px solid green" : "none"} onClick={() => setSelectedImage(_)} key={index} w={"40px"} h={"40px"} src={`${BASE_AVATAR_URI}/${_}.jpg`} />
+                            {Array.from({ length: 5 }).map((_: any, i) => i).map((_: any, index) => (
+                                <Image cursor={"pointer"} border={selectedImage === _ ? "2px solid green" : "none"}
+                                    onClick={() => setSelectedImage(_)}
+                                    key={index}
+                                    w={"40px"}
+                                    h={"40px"} src={`${BASE_AVATAR_URI}/${_}.jpg`} />
                             ))}
                         </Wrap>
                     </Field>

@@ -2,7 +2,7 @@ import Hyperswarm from "hyperswarm"
 import { createContext, useEffect, useState } from "react"
 import { generateMnemonic, mnemonicToSeed } from "bip39"
 import { useP2P } from "../hooks/useP2P"
-import { SECRET_BEE_STORAGE_PATH, PROFILE_STORAGE_PATH, PROFILE_FILE_PATH } from "../config/storage"
+import { SECRET_BEE_STORAGE_PATH, PROFILE_STORAGE_PATH, PROFILE_FILE_PATH, getAppKey } from "../config/storage"
 import { SECRET_CHANNEL_ID } from "../config/constants"
 import { generateTopicBySeed } from "../utils/generateTopicBySeed"
 import useUser from "../hooks/useUser"
@@ -27,8 +27,8 @@ export const SeedContext = createContext<ISeedContext>({
 })
 
 export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
-    const { getBee, swarms, getCore, getRPC, getDrive } = useP2P()
-    const { getProfile, updateProfile, profile, setProfile } = useUser()
+    const { getBee, swarms, getCore, getRPC, getDrive, drives } = useP2P()
+    const { getProfile, updateProfile, profile, setProfile, setWallet: userSetWallet } = useUser()
     const [seedPhrase, setSeedPhrase] = useState("")
     const [temporarySeedPhrase, setTemporarySeedPhrase] = useState<string[]>([])
     const [isSeedLoading, setIsSeedLoading] = useState(true)
@@ -38,14 +38,14 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         if (!seedPhrase) {
             initApp()
+            getAppKey()
         }
-    }, [])
+    }, [seedPhrase, wallet])
 
     async function initApp() {
         if (!seedPhrase) {
             console.log("initializing hypers")
             await initSeed()
-            await initProfileDrive()
             await initPrivateChannel()
         }
     }
@@ -92,13 +92,14 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
         swarm.on('connection', (conn) => {
             console.log('connection', conn)
         })
-
-
         await swarm.join(topic)
         swarms[SECRET_CHANNEL_ID] = swarm
     }
 
     async function initProfileDrive() {
+        if (!wallet || drives[PROFILE_STORAGE_PATH]) {
+            return;
+        }
         console.log("initializing profile drive")
         const profile = await getProfile()
         if (profile) {
@@ -126,8 +127,10 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
 
     async function getMyPublicKey(seed: string) {
         console.log("seeddddd", seed)
-        setWallet(ethers.HDNodeWallet.fromPhrase(seed))
-    }   
+        const wallet = ethers.HDNodeWallet.fromPhrase(seed)
+        setWallet(wallet)
+        userSetWallet(wallet)
+    }
 
     return (
         <SeedContext.Provider value={{ seedPhrase, temporarySeedPhrase, setSeedPhrase, createNewSeedPhrase, isSeedLoading, wallet }}>{children}</SeedContext.Provider>

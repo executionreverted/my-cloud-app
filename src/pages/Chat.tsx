@@ -9,6 +9,13 @@ import {
     Textarea,
     Input
 } from '@chakra-ui/react';
+import {
+    MenuTrigger,
+    MenuItem,
+    MenuRoot,
+    MenuContent,
+} from "../components/ui/menu"
+import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react"
 import { IoAdd, IoSearch } from 'react-icons/io5';
 import { Avatar } from '../components/ui/avatar';
 import { useColorModeValue } from '../components/ui/color-mode';
@@ -16,25 +23,33 @@ import { useRoom } from '../hooks/useRoom';
 import CreateRoom from '../components/Rooms/CreateRoom';
 import useUI from '../hooks/useUI';
 import { BASE_AVATAR_URI } from '../config/constants';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChatMessage, ChatRoom } from '../types/chat.types';
 import { useSeed } from '../hooks/useSeed';
 import { toaster } from '../components/ui/toaster';
 import { FiSend, FiUserPlus } from 'react-icons/fi';
+import { PiDotsThreeCircle } from 'react-icons/pi';
 import MessageList from '../components/Rooms/MessageList';
-import { FiFolderPlus } from 'react-icons/fi';
+import { FiFolderPlus, FiSmile } from 'react-icons/fi';
 import { DialogActionTrigger, DialogRoot, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogCloseTrigger } from '../components/ui/dialog';
 import { Field } from '../components/ui/field';
 import { useP2P } from '../hooks/useP2P';
+import PeersInRoom from '../components/Rooms/PeersInRoom';
+import useClickOutside from '../hooks/useOnClickOutside';
+import DeleteRoom from '../components/Rooms/DeleteRoom';
 const App = () => {
     const { seedPhrase, wallet } = useSeed()
     const { activePeers } = useP2P()
     const { syncInProgress, syncedRooms, rooms, roomsMetadata, activeRoom, setActiveRoom, sendMessage, generateRoomInvitationCode, getRoomMetadata, joinRoomWithInvite } = useRoom()
     const { setIsCreateRoomDialogOpen, isJoinRoomDialogOpen, setIsJoinRoomDialogOpen } = useUI()
-
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false)
     const [newMessage, setNewMessage] = useState("")
     const [files, setFiles] = useState<File[]>([])
     const [invitationCode, setInvitationCode] = useState("")
+
+    const [roomToDelete, setRoomToDelete] = useState(null)
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+    const emojiPickerContainerRef = useClickOutside(() => setShowEmojiPicker(false))
     const messageCount = useMemo(() => {
         if (!activeRoom) {
             return 0
@@ -55,11 +70,11 @@ const App = () => {
         }
 
         const success = await sendMessage(activeRoom?.seed || "", message)
-        toaster.create({
-            title: "Message sent",
-            description: "Message sent successfully",
-            type: "success"
-        })
+        // toaster.create({
+        //     title: "Message sent",
+        //     description: "Message sent successfully",
+        //     type: "success"
+        // })
 
         setNewMessage("")
         setFiles([])
@@ -96,6 +111,7 @@ const App = () => {
             if (room) {
                 setActiveRoom(room)
             }
+            setIsJoinRoomDialogOpen(false)
         } catch (error) {
             console.error(error)
             toaster.create({
@@ -108,6 +124,9 @@ const App = () => {
     return (
         <Flex height="calc(100vh - 100px)" direction="row">
             <CreateRoom />
+            {(isDeleteOpen && roomToDelete) && <DeleteRoom setIsOpen={setIsDeleteOpen} setRoomToDelete={setRoomToDelete} room={roomToDelete} open={isDeleteOpen}>
+                Delete Room
+            </DeleteRoom>}
             {/* Left Panel */}
             <Box
                 width="250px"
@@ -141,28 +160,52 @@ const App = () => {
                         minH={"calc(100% - 120px)"}
                         maxHeight="60vh"
                         overflowY="scroll"
+                        gap={2}
                     >
                         {rooms.map(room => (
                             <HStack
                                 cursor={"pointer"}
                                 key={room.seed}
-                                width="100%"
                                 justify="space-between"
                                 p={2}
                                 borderRadius="md"
+                                userSelect="none"
+                                bg={activeRoom?.seed == room.seed ? 'gray.500' : ""}
                                 _hover={{ bg: 'gray.700' }}
                                 gap={4}
-                                onClick={() => setActiveRoom(room)}
+                                w={"full"}
                             >
-                                {/* Room Avatar and Info */}
-                                <Avatar name={room.name} src={`${BASE_AVATAR_URI}/${room.image}.jpg`} />
-                                <Box flex="1" textAlign="left">
-                                    <Text fontWeight="bold">{room.name}</Text>
-                                    <Text fontSize="sm" color="gray.400">
-                                        {activePeers[room.seed] || 0} online
-                                    </Text>
-                                </Box>
+                                <HStack
+                                    onClick={() => setActiveRoom(room)}
+                                    justify={"space-between"}>
+                                    <Avatar name={room.name} src={`${BASE_AVATAR_URI}/${room.image}.jpg`} />
+                                    <Box flex="1" textAlign="left">
+                                        <Text fontWeight="bold">{room.name}</Text>
+                                        <Text fontSize="sm" color="gray.400">
+                                            {activePeers[room.seed] || 0} online
+                                        </Text>
+                                    </Box>
+                                </HStack>
+                                <MenuRoot onSelect={(f) => {
+                                    if (f.value == "delete") {
+                                        setIsDeleteOpen(true)
+                                        setRoomToDelete(room)
+                                    }
+                                }} positioning={{ placement: "right-start" }}>
+                                    <MenuTrigger asChild>
+                                        <IconButton colorPalette={"gray"} variant="ghost" size="xs">
+                                            <PiDotsThreeCircle />
+                                        </IconButton>
+                                    </MenuTrigger>
+                                    <MenuContent>
+                                        <MenuItem value="delete">
+                                            Delete
+                                        </MenuItem>
+                                    </MenuContent>
+                                </MenuRoot>
                             </HStack>
+
+
                         ))}
                     </Box>
                     {/* Utilities */}
@@ -226,10 +269,13 @@ const App = () => {
                             # {activeRoom?.name || "Join a room to start chatting"}
                         </Text>
                     </HStack>
-                    <IconButton disabled={!activeRoom} onClick={createRoomInvitation} rounded={"full"} colorScheme="teal" size="sm">
-                        <FiUserPlus />
-                    </IconButton>
-                    <Text color="whiteAlpha.800">{`${activeRoom?.name || ""}`}</Text>
+                    {
+                        activeRoom && <>
+                            <PeersInRoom></PeersInRoom>
+                            <IconButton size={"md"} disabled={!activeRoom} onClick={createRoomInvitation} rounded={"full"} colorScheme="teal">
+                                <FiUserPlus />
+                            </IconButton></>
+                    }
                 </Box>
 
                 <Box
@@ -247,7 +293,11 @@ const App = () => {
                 </Box>
 
                 {/* Input Box */}
-                <HStack flexGrow={1} mt={"auto"} opacity={activeRoom ? 1 : 0} gap={4} align="flex-start" justifyContent={"space-between"}>
+                <HStack position={"relative"} flexGrow={1} mt={"auto"} opacity={activeRoom ? 1 : 0} gap={4} align="flex-start" justifyContent={"space-between"}>
+                    {showEmojiPicker &&
+                        <Box ref={emojiPickerContainerRef} position={"absolute"} right={"0"} top={"-450px"}>
+                            <EmojiPicker theme={Theme.AUTO} emojiStyle={EmojiStyle.NATIVE} onEmojiClick={(e) => setNewMessage(p => p + e.emoji)} />
+                        </Box>}
                     <Textarea
                         h={"100%"}
                         rows={3}
@@ -267,9 +317,14 @@ const App = () => {
                         }}
                         onChange={(e) => setNewMessage(e.target.value)}
                     />
-                    <IconButton disabled={newMessage.length === 0 || syncInProgress[activeRoom?.seed || ""]} rounded={"full"} my={"auto"} alignSelf={"center"} justifySelf={"flex-start"} onClick={sendInRoom} colorScheme="teal" size="lg">
-                        <FiSend />
-                    </IconButton>
+                    <VStack>
+                        <IconButton disabled={newMessage.length === 0 || syncInProgress[activeRoom?.seed || ""]} rounded={"full"} my={"auto"} alignSelf={"center"} justifySelf={"flex-start"} onClick={sendInRoom} colorScheme="teal" size="lg">
+                            <FiSend />
+                        </IconButton>
+                        <IconButton rounded={"full"} my={"auto"} alignSelf={"center"} justifySelf={"flex-start"} onClick={() => setShowEmojiPicker(true)} colorScheme="teal" size="lg">
+                            <FiSmile />
+                        </IconButton>
+                    </VStack>
                 </HStack>
             </Box>
         </Flex>

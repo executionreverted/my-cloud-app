@@ -67,7 +67,7 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
     }, [])
 
     async function onTeardown() {
-        console.log('teardown   ')
+        console.log('teardown')
         for (const swarm of Object.values(swarms.current)) {
             console.log('Destroying swarm: ', swarm);
             await swarm.destroy()
@@ -90,7 +90,12 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         }
         for (const rpc of Object.values(rpcs.current)) {
             console.log('Destroying rpc: ', rpc);
-            await rpc.close()
+            await rpc.destroy()
+        }
+
+        for (const corestore of Object.values(corestores.current)) {
+            console.log('Destroying corestore: ', corestore);
+            await corestore.close()
         }
     }
 
@@ -121,15 +126,18 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
         }
 
         autopasses.current[name] = new Autopass(new Corestore(name))
-        console.log("autopass", autopasses.current[name])
         await autopasses.current[name].ready()
         const inviteFile = name + "/.invite"
-        console.log("inviteFile", inviteFile)
         try {
-            if (!fs.existsSync(inviteFile)) {
+            if (!fs.existsSync(name)) {
                 fs.mkdirSync(name, { recursive: true })
-                console.log("Creating invite file.")
-                fs.writeFileSync(inviteFile, 'w')
+                console.log("Creating invite file.", name, inviteFile)
+                await fs.writeFile(inviteFile, 'w', (err) => {
+                    if (err) {
+                        console.log(err)
+                    }
+                    console.log('The file has been saved!');
+                })
             }
         } catch (error) {
             console.log("error", error)
@@ -165,7 +173,6 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
 
     async function getCoreStore(storagePath: string): Promise<Corestore> {
         if (corestores.current[storagePath]) {
-            console.log("corestore already exists", corestores.current[storagePath])
             return corestores.current[storagePath]
         }
 
@@ -176,16 +183,13 @@ export const Peer2PeerProvider = ({ children }: { children: React.ReactNode }) =
     }
 
     async function getDrive(storagePath: string): Promise<Hyperdrive> {
-        console.log("getting drive", storagePath)
         if (drives.current[storagePath]) {
             console.log("drive already exists", drives.current[storagePath])
             return drives.current[storagePath]
         }
-        console.log("getting core store", storagePath)
         const core = await getCoreStore(storagePath)
         const drive = new Hyperdrive(core)
         await drive.ready()
-        console.log("drive", drive)
         drives.current[storagePath] = drive
         return drives.current[storagePath]
     }

@@ -43,7 +43,6 @@ export default function Import() {
                 description: "Your seed phrase has been saved and private databases are ready to use. Reloading...",
                 type: "success",
                 placement: "top",
-                onStatusChange: Pear.reload,
             })
         } catch (error) {
             console.error(error)

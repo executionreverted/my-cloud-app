@@ -23,6 +23,11 @@ function App() {
   const getAppVersion = async () => {
     const { app } = await Pear.versions()
     console.log(app);
+    if (!("Notification" in window)) {
+
+    } else {
+      Notification.requestPermission();
+    }
     setAppVersion(app as any)
     setLoading(false)
   }

@@ -46,7 +46,7 @@ export default defineConfig({
     },
     rollupOptions: {
       logLevel: "debug",
-      external: ['sodium-universal', 'sodium-native', 'sodium', 'udx-native', "random-access-file", "hyperdht", "buffer"]
+      external: ['sodium-universal', 'sodium-native', 'sodium', 'udx-native', "random-access-file", "hyperdht"]
     },
   },
   resolve: {
