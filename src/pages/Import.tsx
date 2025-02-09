@@ -24,20 +24,14 @@ export default function Import() {
     async function handleComplete(force = false) {
         setIsLoading(true)
         try {
-            console.log("created bee")
             const bee = await getBee(SECRET_BEE_STORAGE_PATH)
             if (!bee) {
                 throw new Error("Bee not found")
             }
-            console.log("putting seed", importedSeedPhrase)
             await bee.put("seed", JSON.stringify({
                 seedPhrase: importedSeedPhrase
             }))
-            console.log("putting seed done")
-            console.log("creating secret autopass")
             await getAutopass(SECRET_AUTOPASS_STORAGE_PATH)
-            console.log("creating secret autopass done")
-
             toaster.create({
                 title: "Account Created",
                 description: "Your seed phrase has been saved and private databases are ready to use. Reloading...",
@@ -81,9 +75,7 @@ export default function Import() {
                                 e.preventDefault()
                                 const text = e.clipboardData.getData('text/plain');
                                 const sanitized = text.trim().toLowerCase()
-                                console.log(sanitized);
                                 const words = sanitized.split(" ")
-                                console.log(words);
                                 if (words.length == 20) {
                                     setImportedSeedPhrase(words)
                                 }

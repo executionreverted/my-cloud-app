@@ -4,7 +4,6 @@ import { Avatar, AvatarGroup, Box, Status, VStack } from "@chakra-ui/react"
 import { Tooltip } from "../ui/tooltip"
 export default function PeersInRoom() {
     const { peerIdentities, peersInRooms, activeRoom } = useRoom()
-    console.log({ peerIdentities, peersInRooms })
     return <Box ml={"auto"}>
         <AvatarGroup size="md" stacking="last-on-top">
             {peersInRooms[activeRoom?.seed]?.map((peerId) => (

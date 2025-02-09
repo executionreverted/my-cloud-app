@@ -38,7 +38,7 @@ export const ChatMessage = memo(({ isLoading, rowRef, message, style, }: { isLoa
         } catch (error) {
 
         }
-    }, [message?.senderPublicKey, Object.keys(peerIdentities).length])
+    }, [message?.senderPublicKey, peerIdentities[message?.senderPublicKey]])
 
     return (
         <div ref={rowRef} style={{
@@ -77,7 +77,7 @@ export const ChatMessage = memo(({ isLoading, rowRef, message, style, }: { isLoa
                 </Skeleton>
             </Box>
             <Box display={"flex"} flexDir={isOwnMessage ? "row-reverse" : "row"}>
-                <Text w={"max-content"} px={2} textAlign={isOwnMessage ? "right" : "left"} fontSize={"xs"} color="gray.700" >{isOwnMessage ? profile?.name : senderProfile?.name}</Text>
+                <Text w={"max-content"} px={2} textAlign={isOwnMessage ? "right" : "left"} fontSize={"xs"} color="gray.200" >{isOwnMessage ? profile?.name : senderProfile?.name}</Text>
                 <Text w="max-content" textAlign={isOwnMessage ? "right" : "left"} fontSize={"xs"} color="gray.500" >{`${new Date(message?.timestamp).toLocaleDateString()} ${new Date(message?.timestamp).toLocaleTimeString()}`}</Text>
             </Box>
         </div>

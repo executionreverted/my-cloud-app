@@ -1,4 +1,4 @@
-import { Button, Input, Textarea, Wrap, Image } from "@chakra-ui/react"
+import { Button, Input, Textarea, Wrap, Image, VStack, Box } from "@chakra-ui/react"
 import { useState } from "react"
 import {
     DialogActionTrigger,
@@ -56,29 +56,36 @@ const CreateRoom = () => {
                     <DialogTitle>Create New Room</DialogTitle>
                 </DialogHeader>
                 <DialogBody>
-                    <Field label="Room Name">
-                        <Input onChange={(e) => setRoomName(e.target.value)} placeholder="slickers" />
-                    </Field>
-                    <Field label="Room Description">
-                        <Textarea onChange={(e) => setRoomDescription(e.target.value)} maxLength={50} rows={4} placeholder="A room for slickers" />
-                    </Field>
-                    <Field label="Room Image">
-                        <Wrap gap={0}>
-                            {Array.from({ length: 5 }).map((_: any, i) => i).map((_: any, index) => (
-                                <Image cursor={"pointer"} border={selectedImage === _ ? "2px solid green" : "none"}
-                                    onClick={() => setSelectedImage(_)}
-                                    key={index}
-                                    w={"40px"}
-                                    h={"40px"} src={`${BASE_AVATAR_URI}/${_}.jpg`} />
-                            ))}
-                        </Wrap>
-                    </Field>
+                    <VStack gap={4}>
+                        <Field label="Room Name">
+                            <Input onChange={(e) => setRoomName(e.target.value)} placeholder="slickers" />
+                        </Field>
+                        <Field label="Room Description">
+                            <Textarea onChange={(e) => setRoomDescription(e.target.value)} maxLength={50} rows={4} placeholder="A room for slickers" />
+                        </Field>
+                        <Field label="Room Image">
+                            <Wrap boxSizing={"border-box"} gap={2}>
+                                {Array.from({ length: 5 }).map((_: any, i) => i).map((_: any, index) => (
+                                    <Box transition={"0.2s ease"} onClick={() => setSelectedImage(_)}
+                                        border={selectedImage === _ ? "2px solid green" : "none"}
+                                        key={index} w={"100px"} h={"100px"} overflow={"hidden"}>
+                                        <Image _hover={{
+                                            transform: 'scale(1.1)',
+                                        }} objectFit={"cover"}
+                                            transition={"0.2s ease"} cursor={"pointer"}
+                                            w={"100px"}
+                                            h={"100px"} src={`${BASE_AVATAR_URI}/${_}.jpg`} />
+                                    </Box>
+                                ))}
+                            </Wrap>
+                        </Field>
+                    </VStack>
                 </DialogBody>
                 <DialogFooter>
                     <DialogActionTrigger disabled={isLoading} asChild>
                         <Button onClick={() => setIsCreateRoomDialogOpen(false)} disabled={isLoading} variant="outline">Cancel</Button>
                     </DialogActionTrigger>
-                    <Button disabled={isLoading} loading={isLoading} onClick={handleCreateRoom}>Create {roomName}</Button>
+                    <Button disabled={isLoading} loading={isLoading} onClick={handleCreateRoom}>Create {roomName.length > 20 ? roomName?.substring(0, 20) + '...' : roomName}</Button>
                 </DialogFooter>
                 <DialogCloseTrigger />
             </DialogContent>

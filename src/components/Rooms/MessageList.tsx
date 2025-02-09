@@ -11,7 +11,6 @@ const Messages = memo(({ messageLength }: any) => {
 
     useEffect(() => {
         if (messageLength > 0) {
-            console.log("scrolling to bottom ", messageLength)
             scrollToBottom();
         }
     }, [messageLength]);

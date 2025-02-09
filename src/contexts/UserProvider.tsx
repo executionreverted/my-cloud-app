@@ -35,14 +35,6 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         const drive = await getDrive(PROFILE_STORAGE_PATH)
         const exists = await drive.exists(PROFILE_FILE_PATH)
         if (exists) return getProfile()
-        console.log("FIRST TIME!!!!!! INSTALL PROFILE DOC")
-        console.log("FIRST TIME!!!!!! INSTALL PROFILE DOC")
-        console.log("FIRST TIME!!!!!! INSTALL PROFILE DOC")
-        console.log("FIRST TIME!!!!!! INSTALL PROFILE DOC")
-        console.log("FIRST TIME!!!!!! INSTALL PROFILE DOC")
-        console.log("FIRST TIME!!!!!! INSTALL PROFILE DOC")
-        console.log("FIRST TIME!!!!!! INSTALL PROFILE DOC")
-        console.log("FIRST TIME!!!!!! INSTALL PROFILE DOC")
     }
 
     useEffect(() => {
@@ -62,21 +54,12 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         const profile$ = await (await getDrive(PROFILE_STORAGE_PATH)).get(PROFILE_FILE_PATH)
         if (profile$) {
             const decoded = profile$.toString()
-            console.log({ decoded })
-            console.log({ decoded })
-            console.log({ decoded })
-            console.log({ decoded })
-            console.log({ decoded })
+        
             setProfile(JSON.parse(decoded))
             return { ...JSON.parse(decoded), pubKey: wallet.publicKey }
         }
 
-        console.log('CANT FIND PROFILE SO SERVE DEFAULT !!!!')
-        console.log('CANT FIND PROFILE SO SERVE DEFAULT !!!!')
-        console.log('CANT FIND PROFILE SO SERVE DEFAULT !!!!')
-        console.log('CANT FIND PROFILE SO SERVE DEFAULT !!!!')
-        console.log('CANT FIND PROFILE SO SERVE DEFAULT !!!!')
-        console.log('CANT FIND PROFILE SO SERVE DEFAULT !!!!')
+
         setProfile({ ...initProfile, pubKey: wallet.publicKey })
         return { ...initProfile, pubKey: wallet.publicKey }
     }
@@ -87,11 +70,7 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         // @ts-ignore
         const toBuffer = Buffer.from(JSON.stringify(updatedProfile))
         await drive.put(PROFILE_FILE_PATH, toBuffer)
-        console.log('UPDATE PROFILE... ', updatedProfile)
-        console.log('UPDATE PROFILE... ', updatedProfile)
-        console.log('UPDATE PROFILE... ', updatedProfile)
-        console.log('UPDATE PROFILE... ', updatedProfile)
-        console.log('UPDATE PROFILE... ', updatedProfile)
+
         setProfile(updatedProfile)
         return updatedProfile
     }

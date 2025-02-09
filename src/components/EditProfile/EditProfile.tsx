@@ -17,25 +17,33 @@ import useUI from "../../hooks/useUI"
 import useUser from "../../hooks/useUser"
 import { toaster } from "../ui/toaster"
 import { BASE_AVATAR_URI } from "../../config/constants"
+import { useP2P } from "../../hooks/useP2P"
 const EditProfile = () => {
   const ref = useRef<HTMLInputElement>(null)
+  const { rpcs } = useP2P()
   const { openEditProfile, setOpenEditProfile } = useUI()
   const { getProfile, updateProfile, wallet } = useUser()
 
   const [profile, setProfile] = useState(null)
   const [name, setName] = useState<string | null>("")
   const [status, setStatus] = useState<string | null>("")
-  const [image, setImage] = useState<string | null>("")
+  const [image, setImage] = useState<string | null>("0")
 
   const hasImage = typeof profile?.image === "string"
 
   useEffect(() => {
     if (!wallet) return;
     fetchProfile()
-  }, [wallet])
+  }, [wallet, openEditProfile])
 
   const fetchProfile = async () => {
     const _profile = await getProfile()
+    console.log(_profile)
+    console.log(_profile)
+    console.log(_profile)
+    console.log(_profile)
+    console.log(_profile)
+    console.log(_profile)
     if (!_profile) {
       return;
     }
@@ -54,7 +62,6 @@ const EditProfile = () => {
     const reader = new FileReader()
     reader.onload = (e) => {
       const base64 = e.target?.result as string
-      console.log("base64", base64)
       setImage(base64.replace('data:image/jpeg;base64,', ''))
     }
     reader.readAsDataURL(file)
@@ -64,11 +71,20 @@ const EditProfile = () => {
     console.log('TRIGGER SAVE')
     console.log(name, image, status, profile)
     try {
-      await updateProfile({
+      const updated = {
         name: name || profile?.name,
         image: typeof image === "string" ? image : profile?.image,
         status: status || profile?.status
-      })
+      }
+      await updateProfile(updated)
+
+
+      const vals = Object.values<any>(rpcs)
+      for (const rpc of vals) {
+        console.log(rpc);
+        rpc?.request('updateProfile', Buffer.from(JSON.stringify({ ...updated, pubKey: wallet.publicKey })))
+      }
+
       toaster.create({
         title: "Profile updated",
         description: "Your profile has been updated successfully",
@@ -132,7 +148,7 @@ const EditProfile = () => {
               <Field.Root>
                 <Field.Label>P2P Network Username</Field.Label>
                 <Field.HelperText>This is your username on the P2P Network. It will be used to identify you to other peers.</Field.HelperText>
-                <Input defaultValue={name} placeholder="P2P Network Username" onChange={(e) => setName(e.target.value)} />
+                <Input value={name} placeholder="P2P Network Username" onChange={(e) => setName(e.target.value)} />
               </Field.Root>
               <Field.Root>
                 <Field.Label>Status</Field.Label>

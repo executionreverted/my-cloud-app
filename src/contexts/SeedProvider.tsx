@@ -90,7 +90,6 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
         const topic = generateTopicBySeed(phrase)
         const swarm = new Hyperswarm()
         swarm.on('connection', (conn) => {
-            console.log('connection', conn)
         })
         await swarm.join(topic)
         swarms[SECRET_CHANNEL_ID] = swarm
@@ -100,33 +99,27 @@ export const SeedProvider = ({ children }: { children: React.ReactNode }) => {
         if (!wallet || drives[PROFILE_STORAGE_PATH]) {
             return;
         }
-        console.log("initializing profile drive")
         const profile = await getProfile()
         if (profile) {
-            console.log("profile", profile)
             return profile
         }
-        console.log("no profile")
         const initProfile: Profile = {
             name: "UnknownUser",
             status: "Chilling",
             image: "",
         }
         const updatedProfile = await updateProfile(initProfile)
-        console.log("updatedProfile", updatedProfile)
         return updatedProfile
     }
 
     function createNewSeedPhrase(size: number = 20) {
         const entropy = ethers.randomBytes(32)
         const phrase = ethers.Mnemonic.fromEntropy(entropy).phrase
-        console.log("phrase", phrase)
         setTemporarySeedPhrase(phrase.split(' '))
     }
 
 
     async function getMyPublicKey(seed: string) {
-        console.log("seeddddd", seed)
         const wallet = ethers.HDNodeWallet.fromPhrase(seed)
         setWallet(wallet)
         userSetWallet(wallet)

@@ -50,7 +50,6 @@ const DeleteRoom = ({ children, room, open, setIsOpen, setRoomToDelete }: { chil
                     </DialogActionTrigger>
                     <DialogActionTrigger asChild>
                         <Button loading={isBusy} onClick={async () => {
-                            console.log("deleting room....")
                             await deleteRoom(room.seed)
                             setIsOpen(false)
                             setRoomToDelete(null)

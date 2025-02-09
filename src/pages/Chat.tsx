@@ -28,7 +28,7 @@ import { ChatMessage, ChatRoom } from '../types/chat.types';
 import { useSeed } from '../hooks/useSeed';
 import { toaster } from '../components/ui/toaster';
 import { FiSend, FiUserPlus } from 'react-icons/fi';
-import { PiDotsThreeCircle } from 'react-icons/pi';
+import { PiDotsThreeCircle, PiVideoConferenceThin } from 'react-icons/pi';
 import MessageList from '../components/Rooms/MessageList';
 import { FiFolderPlus, FiSmile } from 'react-icons/fi';
 import { DialogActionTrigger, DialogRoot, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogCloseTrigger } from '../components/ui/dialog';
@@ -37,6 +37,7 @@ import { useP2P } from '../hooks/useP2P';
 import PeersInRoom from '../components/Rooms/PeersInRoom';
 import useClickOutside from '../hooks/useOnClickOutside';
 import DeleteRoom from '../components/Rooms/DeleteRoom';
+import AudioCall from '../components/Rooms/AudioCall';
 const App = () => {
     const { seedPhrase, wallet } = useSeed()
     const { activePeers } = useP2P()
@@ -49,6 +50,8 @@ const App = () => {
 
     const [roomToDelete, setRoomToDelete] = useState(null)
     const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+    const [voiceChatRoom, setVoiceChatRoom] = useState("")
+
     const emojiPickerContainerRef = useClickOutside(() => setShowEmojiPicker(false))
     const messageCount = useMemo(() => {
         if (!activeRoom) {
@@ -61,7 +64,6 @@ const App = () => {
         if (!activeRoom || !wallet) {
             return
         }
-        console.log('sending message')
         const message: ChatMessage = {
             content: newMessage,
             senderPublicKey: wallet?.publicKey,
@@ -85,7 +87,6 @@ const App = () => {
             return
         }
         const code = await generateRoomInvitationCode(activeRoom)
-        console.log('creating room invitation')
         navigator.clipboard.writeText(code)
         toaster.create({
             title: "Invitation code copied to clipboard",
@@ -97,7 +98,6 @@ const App = () => {
     useEffect(() => {
         if (activeRoom) {
             getRoomMetadata(activeRoom.seed).then((metadata) => {
-                console.log(metadata)
             })
         }
     }, [activeRoom])
@@ -176,12 +176,13 @@ const App = () => {
                                 w={"full"}
                             >
                                 <HStack
+                                    maxW={"80%"}
                                     onClick={() => setActiveRoom(room)}
                                     justify={"space-between"}>
-                                    <Avatar name={room.name} src={`${BASE_AVATAR_URI}/${room.image}.jpg`} />
+                                    <Avatar name={room.name?.substring(0, 10)} src={`${BASE_AVATAR_URI}/${room.image}.jpg`} />
                                     <Box flex="1" textAlign="left">
-                                        <Text fontWeight="bold">{room.name}</Text>
-                                        <Text fontSize="sm" color="gray.400">
+                                        <Text fontSize={"sm"} fontWeight="bold">{room.name.length > 14 ? room.name?.substring(0, 14) + '...' : room.name}</Text>
+                                        <Text fontSize="xs" color="gray.400">
                                             {activePeers[room.seed] || 0} online
                                         </Text>
                                     </Box>
@@ -271,6 +272,8 @@ const App = () => {
                     </HStack>
                     {
                         activeRoom && <>
+                            <AudioCall />
+                            
                             <PeersInRoom></PeersInRoom>
                             <IconButton size={"md"} disabled={!activeRoom} onClick={createRoomInvitation} rounded={"full"} colorScheme="teal">
                                 <FiUserPlus />
@@ -299,6 +302,7 @@ const App = () => {
                             <EmojiPicker theme={Theme.AUTO} emojiStyle={EmojiStyle.NATIVE} onEmojiClick={(e) => setNewMessage(p => p + e.emoji)} />
                         </Box>}
                     <Textarea
+                        resize={"none"}
                         h={"100%"}
                         rows={3}
                         placeholder="Type a message..."
@@ -306,8 +310,7 @@ const App = () => {
                         width="100%"
                         value={newMessage}
                         onKeyDown={(e) => {
-
-                            if (e.key === "Enter") {
+                            if (e.key === "Enter" && !e.shiftKey) {
                                 if (newMessage.length === 0 || syncInProgress[activeRoom?.seed || ""]) {
                                     return
                                 }
@@ -327,7 +330,7 @@ const App = () => {
                     </VStack>
                 </HStack>
             </Box>
-        </Flex>
+        </Flex >
     );
 };
 
