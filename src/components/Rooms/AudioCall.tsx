@@ -1,42 +1,62 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useP2P } from '../../hooks/useP2P';
 import { deterministicHex } from '../../utils/deterministicHex';
-import Hyperswarm from 'hyperswarm';  
-import { Button, IconButton } from '@chakra-ui/react';
-import { PiVideoConferenceThin } from 'react-icons/pi';
+import Hyperswarm from 'hyperswarm';
+import { Button, HStack, IconButton, VStack } from '@chakra-ui/react';
+import { PiPhoneCall } from 'react-icons/pi';
 import { useRoom } from '../../hooks/useRoom';
-
-
-
-
+import workletUrl from "../../assets/worklet.js?url";
+import { CiMicrophoneOn, CiMicrophoneOff } from 'react-icons/ci';
+// AudioProcessor.js'yi eklediğinizden emin olun (işlemci sınıfı)
 const AudioCall = ({ }) => {
     const { swarms, encodeTopic } = useP2P();
     const { activeRoom } = useRoom();
-    const [stream, setStream] = useState(null);
+    const stream = useRef(null);
     const [isRecording, setIsRecording] = useState(false);
     const [inCall, setInCall] = useState(false);
     const roomId = useRef(null);
     const audioContextRef = useRef(null);
-    const processorRef = useRef(null);
-    const isMicOpen = useRef(true);
+    const isInCall = useRef(null);
+    const isMicOpen = useRef(false);
+    const [micOpen, setMicOpen] = useState(false)
+    const [busy, setBusy] = useState(false)
+    const sourceNodeRef = useRef(null);
+    const audioWorkletNodeRef = useRef(null);
 
     function sendAudio(dataArray) {
+        const buffer = Buffer.from(dataArray.buffer);
         const swarm$ = swarms[roomId.current + 'voice'];
         if (swarm$) {
-            // Ses verisini sıkıştırarak iletmek için Int16Array yerine daha verimli bir format kullanılabilir
-            const int8Array = new Int8Array(dataArray.length);
-            for (let i = 0; i < dataArray.length; i++) {
-                int8Array[i] = dataArray[i] * 0x7F;  // Normalizasyon işlemi
+            if (!dataArray || dataArray.length === 0) {
+                console.error("Data array is empty or undefined!");
+                return;
             }
+            console.log('Buffer data: ', buffer);
+            console.log('Buffer byteLength: ', buffer.byteLength);
+            console.log("sending buffer", buffer)
 
-            const peers = [...swarm$.connections];
+            const int16Array = new Int16Array(dataArray.buffer);
+            console.log("Int16Array view of the buffer:", int16Array);
+            // Int16Array'a dönüştürme
+
+            // Buffer'dan gönderme
+            if (!int16Array.buffer) {
+                console.error("Int16Array buffer is invalid or undefined!");
+                return;
+            }
+            const peers = [...swarm$.connections]; // Bağlı tüm peer'leri al
             for (const peer of peers) {
-                peer.write(Buffer.from(int8Array.buffer));
+                peer.write(Buffer.from(int16Array.buffer))
             }
         }
     }
 
     async function joinVoiceChat(_roomId) {
+        setBusy(true)
+        if (inCall) {
+            await leaveCall()
+        }
+
         console.log('Connecting to room ', _roomId);
         roomId.current = _roomId;
         const topic = deterministicHex(roomId.current + "voice");
@@ -48,105 +68,172 @@ const AudioCall = ({ }) => {
         swarm.on('connection', (connection) => {
             console.log('Connection established: ', connection);
             connection.on('data', (data) => {
-                playReceivedAudio(data);
+                // Buffer'ı almak ve işlemek
+                const buffer = new Uint8Array(data);
+                const int16Array = new Int16Array(buffer.buffer);
+
+                const float32Array = new Float32Array(int16Array.length);
+                for (let i = 0; i < int16Array.length; i++) {
+                    float32Array[i] = int16Array[i] / 0x7FFF;  // Normalizasyon
+                }
+                playReceivedAudio(float32Array);
             });
         });
 
         setInCall(true);
         await swarm.join(encodedTopic);
         swarms[roomId.current + "voice"] = swarm;
-        startRecording();
+        await startRecording()
+        setBusy(false)
     }
 
-    function startRecording() {
-        // Mikrofon erişimi ve ses işleme ayarları
-        navigator.mediaDevices.getUserMedia({
-            video: false,
-            audio: {
-                echoCancellation: true,   // Yankı engelleme
-                noiseSuppression: true,   // Gürültü engelleme
-                sampleRate: 44100,
-                channelCount: 1,         // Mono ses
-                autoGainControl: true    // Otomatik ses seviyesi kontrolü
+
+    async function leaveCall() {
+        setBusy(true)
+        await stopRecording()
+        cleanupAudioResources()
+        const swarm$ = swarms[roomId.current + 'voice'];
+        await swarm$?.close?.()
+        setInCall(false)
+        setBusy(false)
+    }
+
+    async function cleanupAudioResources() {
+        // Stop recording and clear stream
+        if (stream.current) {
+            const tracks = stream.current.getTracks();
+            tracks.forEach(track => track.stop());
+            stream.current = null;
+        }
+
+        // Disconnect and cleanup audio nodes
+        if (sourceNodeRef.current) {
+            sourceNodeRef.current.disconnect();
+            sourceNodeRef.current = null;
+        }
+
+        if (audioWorkletNodeRef.current) {
+            audioWorkletNodeRef.current.disconnect();
+            audioWorkletNodeRef.current.port.onmessage = null;
+            audioWorkletNodeRef.current = null;
+        }
+        // Close AudioContext
+        if (audioContextRef.current) {
+            try {
+                await audioContextRef.current.close();
+                audioContextRef.current = null;
+            } catch (error) {
+                console.error("Error closing AudioContext:", error);
             }
-        })
-            .then((userStream) => {
-                setIsRecording(true);
-                audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                const source = audioContextRef.current.createMediaStreamSource(userStream);
-                processorRef.current = audioContextRef.current.createScriptProcessor(2048, 1, 1);
+        }
+        setIsRecording(false);
+        isMicOpen.current = false;
+        setMicOpen(false);
+        setInCall(false)
+        isInCall.current = false
+    }
 
-                source.connect(processorRef.current);
-
-                // Gain node ile ses seviyesi kontrolü
-                const gainNode = audioContextRef.current.createGain();
-                gainNode.gain.value = 1;  // Ses seviyesini artırabilirsin
-                processorRef.current.connect(gainNode);
-                gainNode.connect(audioContextRef.current.destination);
-
-                processorRef.current.onaudioprocess = (e) => {
-                    const inputData = e.inputBuffer.getChannelData(0);
-                    if (isMicOpen.current) {
-                        sendAudio(inputData);
-                    }
-                };
-            })
-            .catch((err) => {
-                console.error("Mikrofon erişimi sağlanamadı:", err);
+    // Ses kaydını başlatma
+    async function startRecording() {
+        try {
+            if (!isMicOpen.current) {
+                return
+            }
+            const userStream = await navigator.mediaDevices.getUserMedia({
+                video: false,
+                audio: {
+                    sampleRate: 44100,
+                    channelCount: 1,
+                }
             });
+            stream.current = userStream
+            setIsRecording(true);
+            if (!audioContextRef.current) {
+                audioContextRef.current = new AudioContext();
+            }
+            sourceNodeRef.current = audioContextRef.current.createMediaStreamSource(userStream);
+            await audioContextRef.current.audioWorklet.addModule(workletUrl);
+
+            audioWorkletNodeRef.current = new AudioWorkletNode(audioContextRef.current, "processor");
+            sourceNodeRef.current.connect(audioWorkletNodeRef.current);
+
+            console.log('Init : audio worklet')
+            audioWorkletNodeRef.current.port.onmessage = (e) => {
+                let buffer = e.data.audioData;
+                // Veriyi Buffer'a dönüştür
+                console.log('Received audio data:', buffer);
+                if (buffer && isMicOpen.current) {
+                    sendAudio(buffer);
+                }
+            };
+
+        } catch (err) {
+            console.error("Mikrofon erişimi sağlanamadı:", err);
+        }
     }
 
     const stopRecording = () => {
         console.log('STOPPED.');
-        if (stream) {
-            const tracks = stream.getTracks();
+        if (stream.current) {
+            const tracks = stream.current.getTracks();
             tracks.forEach(track => track.stop());
-            setStream(null);
         }
         setIsRecording(false);
     };
 
     const playReceivedAudio = async (data, sampleRate = 44100) => {
         try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-            // Ses verisini işlemek için hizalama
-            const alignedBuffer = new Uint8Array(data);
-            if (alignedBuffer.length % 2 !== 0) {
-                console.error("Invalid buffer length:", alignedBuffer.length);
-                return;
+            const audioContext = audioContextRef.current || new (window.AudioContext || window.webkitAudioContext)({
+                sampleRate: sampleRate
+            });
+            if (!audioContextRef.current) {
+                audioContextRef.current = audioContext;
             }
 
-            const int8Array = new Int8Array(alignedBuffer.buffer);
+            console.log('PLAYING AUDIO', data)
 
-            // Ses verisini Float32Array'e dönüştürme
-            const float32Array = new Float32Array(int8Array.length);
-            for (let i = 0; i < int8Array.length; i++) {
-                float32Array[i] = int8Array[i] / 0x7F;
-            }
-
-            // AudioBuffer ile ses verisini oynatmak
-            const audioBuffer = audioContext.createBuffer(1, float32Array.length, sampleRate);
-            audioBuffer.getChannelData(0).set(float32Array);
+            const audioBuffer = audioContext.createBuffer(1, data.length, 44100);
+            audioBuffer.getChannelData(0).set(data);
 
             const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioContext.destination);
             source.start(0);
+            source.onended = () => {
+                source.disconnect();
+            };
         } catch (error) {
             console.error("🚨 Audio playback error:", error);
         }
     };
 
     return (
-        <>
-            <IconButton onClick={() => joinVoiceChat(activeRoom.seed)}>
-                <PiVideoConferenceThin />
+        <HStack ml={"auto"} gap={2}>
+            <IconButton disabled={busy} colorPalette={inCall ? "green" : "gray"} onClick={() => {
+                if (!isInCall.current) {
+                    joinVoiceChat(activeRoom.seed)
+                    setInCall(true)
+                    isInCall.current = true
+                } else {
+                    leaveCall()
+                    setInCall(false)
+                    isInCall.current = false
+                }
+            }}>
+                <PiPhoneCall />
             </IconButton>
-            <Button onClick={() => isMicOpen.current = !isMicOpen.current}>
-                Toggle Mic
-            </Button>
-        </>
+            <IconButton colorPalette={micOpen ? "green" : "gray"} onClick={() => {
+                isMicOpen.current = !isMicOpen.current
+                if (isMicOpen.current) {
+                    startRecording()
+                } else {
+                    stopRecording()
+                }
+                setMicOpen(isMicOpen.current)
+            }}>
+                {micOpen ? <CiMicrophoneOn /> : <CiMicrophoneOff />}
+            </IconButton>
+        </HStack>
     );
 };
 
