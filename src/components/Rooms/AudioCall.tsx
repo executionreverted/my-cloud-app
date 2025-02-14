@@ -6,6 +6,13 @@ import { HStack, IconButton } from '@chakra-ui/react';
 import { PiPhoneCall } from 'react-icons/pi';
 import { useRoom } from '../../hooks/useRoom';
 import { CiMicrophoneOn, CiMicrophoneOff } from 'react-icons/ci';
+import workletUrl from "../../assets/worklet.js?url";
+
+
+const SAMPLE_RATE = 44100;
+const CHANNELS = 1;
+const BUFFER_SIZE = 1024; // Smaller buffer size
+
 // AudioProcessor.js'yi eklediğinizden emin olun (işlemci sınıfı)
 const AudioCall = ({ }) => {
     const { swarms, encodeTopic } = useP2P();
@@ -25,14 +32,9 @@ const AudioCall = ({ }) => {
     function sendAudio(dataArray) {
         const swarm$ = swarms[roomId.current + 'voice'];
         if (swarm$) {
-
-            const int8Array = new Int8Array(dataArray.length);
-            for (let i = 0; i < dataArray.length; i++) {
-                int8Array[i] = dataArray[i] * 0x7F;  // Normalizasyon işlemi
-            }
-            const peers = [...swarm$.connections]; // Bağlı tüm peer'leri al
-            for (const peer of peers) {
-                peer.write(Buffer.from(int8Array.buffer))
+            const buffer = Buffer.from(dataArray.buffer); // Direkt float32 olarak gönder
+            for (const peer of [...swarm$.connections]) {
+                peer.write(buffer);
             }
         }
     }
@@ -113,7 +115,6 @@ const AudioCall = ({ }) => {
         isInCall.current = false
     }
 
-    // Ses kaydını başlatma
     async function startRecording() {
         try {
             if (!isMicOpen.current) {
@@ -123,24 +124,56 @@ const AudioCall = ({ }) => {
             const userStream = await navigator.mediaDevices.getUserMedia({
                 video: false,
                 audio: {
-                    sampleRate: 44100,
-                    channelCount: 1,
+                    sampleRate: SAMPLE_RATE,
+                    channelCount: CHANNELS,
+
                 }
             });
             stream.current = userStream
-            if (!audioContextRef.current) {
+            if (!audioContextRef.current || audioContextRef.current.state === "closed") {
                 audioContextRef.current = new AudioContext();
             }
             sourceNodeRef.current = audioContextRef.current.createMediaStreamSource(userStream);
-            processorRef.current = audioContextRef.current.createScriptProcessor(2048, 1, 1);
 
-            processorRef.current.connect(audioContextRef.current.destination)
-            sourceNodeRef.current.connect(processorRef.current)
-            processorRef.current.onaudioprocess = (e) => {
-                const inputData = e.inputBuffer.getChannelData(0);
-                console.log(inputData)
-                if (isMicOpen.current) {
-                    sendAudio(inputData);
+            const highPassFilter = audioContextRef.current.createBiquadFilter();
+            highPassFilter.type = "highpass";
+            highPassFilter.frequency.value = 180;
+
+            const lowPassFilter = audioContextRef.current.createBiquadFilter();
+            lowPassFilter.type = "lowpass";
+            lowPassFilter.frequency.value = 5000;
+
+            const compressor = audioContextRef.current.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(-50, audioContextRef.current.currentTime);  
+            compressor.knee.setValueAtTime(40, audioContextRef.current.currentTime); 
+            compressor.ratio.setValueAtTime(12, audioContextRef.current.currentTime);
+            compressor.attack.setValueAtTime(0.003, audioContextRef.current.currentTime); 
+            compressor.release.setValueAtTime(0.25, audioContextRef.current.currentTime);  
+
+
+            await audioContextRef.current.audioWorklet.addModule(workletUrl);
+            if (!audioWorkletNodeRef.current) {
+                audioWorkletNodeRef.current = new AudioWorkletNode(audioContextRef.current, "linear-pcm-processor", {
+                    processorOptions: {
+                        bufferSize: BUFFER_SIZE
+                    }
+                });
+            }
+            sourceNodeRef.current
+                .connect(highPassFilter)
+                .connect(lowPassFilter)
+                .connect(compressor)
+                .connect(audioWorkletNodeRef.current);
+            // audioWorkletNodeRef.current.connect(audioContextRef.current.destination);
+
+            audioWorkletNodeRef.current.port.onmessage = (e) => {
+                const buffer = e.data;
+                const volume = Math.max(...buffer);
+
+                console.log({ volume })
+                // do something with it
+                if (isMicOpen.current && volume > 400) {
+                    sendAudio(buffer);
                 }
             };
 
@@ -158,33 +191,37 @@ const AudioCall = ({ }) => {
         setIsRecording(false);
     };
 
-    const playReceivedAudio = async (data, sampleRate = 44100) => {
+    const playReceivedAudio = async (data) => {
         try {
-            const audioContext = audioContextRef.current || new (window.AudioContext || window.webkitAudioContext)({
-                sampleRate: sampleRate
-            });
             if (!audioContextRef.current) {
-                audioContextRef.current = audioContext;
+                audioContextRef.current = new AudioContext({
+                    sampleRate: SAMPLE_RATE,
+                });
             }
 
-            // Ses verisini işlemek için hizalama
+            // 🔹 Veriyi doğru tipte al (Uint8 → Int16)
             const alignedBuffer = new Uint8Array(data);
             if (alignedBuffer.length % 2 !== 0) {
                 console.error("Invalid buffer length:", alignedBuffer.length);
                 return;
             }
-            const int8Array = new Int8Array(alignedBuffer.buffer);
-            // Ses verisini Float32Array'e dönüştürme
-            const float32Array = new Float32Array(int8Array.length);
-            for (let i = 0; i < int8Array.length; i++) {
-                float32Array[i] = int8Array[i] / 0x7F;
+
+            // 🔹 Int16 olarak oku (Little Endian)
+            const int16Array = new Int16Array(alignedBuffer.buffer);
+
+            // 🔹 Float32'e normalize et (0x7FFF = 32767)
+            const float32Array = new Float32Array(int16Array.length);
+            for (let i = 0; i < int16Array.length; i++) {
+                float32Array[i] = int16Array[i] / 0x7FFF;
             }
-            // AudioBuffer ile ses verisini oynatmak
-            const audioBuffer = audioContext.createBuffer(1, float32Array.length, sampleRate);
+
+            // 🔹 AudioBuffer oluştur ve oynat
+            const audioBuffer = audioContextRef.current.createBuffer(1, float32Array.length, SAMPLE_RATE);
             audioBuffer.getChannelData(0).set(float32Array);
-            const source = audioContext.createBufferSource();
+
+            const source = audioContextRef.current.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
+            source.connect(audioContextRef.current.destination);
             source.start(0);
 
             source.onended = () => {
