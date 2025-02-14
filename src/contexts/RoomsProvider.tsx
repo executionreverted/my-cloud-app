@@ -125,7 +125,7 @@ export const RoomsProvider = ({ children }: { children: React.ReactNode }) => {
             // Create autobase for room
             await roomAutopass.add(ROOMS_AUTOPASS_METADATA_KEY + room.seed, {
                 lastActive: Date.now(),
-                messageLength: 0
+                messageLength: 0,
             })
 
             toaster.success({

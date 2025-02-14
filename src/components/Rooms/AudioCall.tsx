@@ -1,11 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useP2P } from '../../hooks/useP2P';
 import { deterministicHex } from '../../utils/deterministicHex';
 import Hyperswarm from 'hyperswarm';
-import { Button, HStack, IconButton, VStack } from '@chakra-ui/react';
+import { HStack, IconButton } from '@chakra-ui/react';
 import { PiPhoneCall } from 'react-icons/pi';
 import { useRoom } from '../../hooks/useRoom';
-import workletUrl from "../../assets/worklet.js?url";
 import { CiMicrophoneOn, CiMicrophoneOff } from 'react-icons/ci';
 // AudioProcessor.js'yi eklediğinizden emin olun (işlemci sınıfı)
 const AudioCall = ({ }) => {
@@ -22,31 +21,18 @@ const AudioCall = ({ }) => {
     const [busy, setBusy] = useState(false)
     const sourceNodeRef = useRef(null);
     const audioWorkletNodeRef = useRef(null);
-
+    const processorRef = useRef(null)
     function sendAudio(dataArray) {
-        const buffer = Buffer.from(dataArray.buffer);
         const swarm$ = swarms[roomId.current + 'voice'];
         if (swarm$) {
-            if (!dataArray || dataArray.length === 0) {
-                console.error("Data array is empty or undefined!");
-                return;
-            }
-            console.log('Buffer data: ', buffer);
-            console.log('Buffer byteLength: ', buffer.byteLength);
-            console.log("sending buffer", buffer)
 
-            const int16Array = new Int16Array(dataArray.buffer);
-            console.log("Int16Array view of the buffer:", int16Array);
-            // Int16Array'a dönüştürme
-
-            // Buffer'dan gönderme
-            if (!int16Array.buffer) {
-                console.error("Int16Array buffer is invalid or undefined!");
-                return;
+            const int8Array = new Int8Array(dataArray.length);
+            for (let i = 0; i < dataArray.length; i++) {
+                int8Array[i] = dataArray[i] * 0x7F;  // Normalizasyon işlemi
             }
             const peers = [...swarm$.connections]; // Bağlı tüm peer'leri al
             for (const peer of peers) {
-                peer.write(Buffer.from(int16Array.buffer))
+                peer.write(Buffer.from(int8Array.buffer))
             }
         }
     }
@@ -68,15 +54,7 @@ const AudioCall = ({ }) => {
         swarm.on('connection', (connection) => {
             console.log('Connection established: ', connection);
             connection.on('data', (data) => {
-                // Buffer'ı almak ve işlemek
-                const buffer = new Uint8Array(data);
-                const int16Array = new Int16Array(buffer.buffer);
-
-                const float32Array = new Float32Array(int16Array.length);
-                for (let i = 0; i < int16Array.length; i++) {
-                    float32Array[i] = int16Array[i] / 0x7FFF;  // Normalizasyon
-                }
-                playReceivedAudio(float32Array);
+                playReceivedAudio(data);
             });
         });
 
@@ -121,7 +99,9 @@ const AudioCall = ({ }) => {
         if (audioContextRef.current) {
             try {
                 await audioContextRef.current.close();
+                await processorRef.current.close();
                 audioContextRef.current = null;
+                processorRef.current = null
             } catch (error) {
                 console.error("Error closing AudioContext:", error);
             }
@@ -139,6 +119,7 @@ const AudioCall = ({ }) => {
             if (!isMicOpen.current) {
                 return
             }
+            setIsRecording(true);
             const userStream = await navigator.mediaDevices.getUserMedia({
                 video: false,
                 audio: {
@@ -147,23 +128,19 @@ const AudioCall = ({ }) => {
                 }
             });
             stream.current = userStream
-            setIsRecording(true);
             if (!audioContextRef.current) {
                 audioContextRef.current = new AudioContext();
             }
             sourceNodeRef.current = audioContextRef.current.createMediaStreamSource(userStream);
-            await audioContextRef.current.audioWorklet.addModule(workletUrl);
+            processorRef.current = audioContextRef.current.createScriptProcessor(2048, 1, 1);
 
-            audioWorkletNodeRef.current = new AudioWorkletNode(audioContextRef.current, "processor");
-            sourceNodeRef.current.connect(audioWorkletNodeRef.current);
-
-            console.log('Init : audio worklet')
-            audioWorkletNodeRef.current.port.onmessage = (e) => {
-                let buffer = e.data.audioData;
-                // Veriyi Buffer'a dönüştür
-                console.log('Received audio data:', buffer);
-                if (buffer && isMicOpen.current) {
-                    sendAudio(buffer);
+            processorRef.current.connect(audioContextRef.current.destination)
+            sourceNodeRef.current.connect(processorRef.current)
+            processorRef.current.onaudioprocess = (e) => {
+                const inputData = e.inputBuffer.getChannelData(0);
+                console.log(inputData)
+                if (isMicOpen.current) {
+                    sendAudio(inputData);
                 }
             };
 
@@ -190,15 +167,26 @@ const AudioCall = ({ }) => {
                 audioContextRef.current = audioContext;
             }
 
-            console.log('PLAYING AUDIO', data)
-
-            const audioBuffer = audioContext.createBuffer(1, data.length, 44100);
-            audioBuffer.getChannelData(0).set(data);
-
+            // Ses verisini işlemek için hizalama
+            const alignedBuffer = new Uint8Array(data);
+            if (alignedBuffer.length % 2 !== 0) {
+                console.error("Invalid buffer length:", alignedBuffer.length);
+                return;
+            }
+            const int8Array = new Int8Array(alignedBuffer.buffer);
+            // Ses verisini Float32Array'e dönüştürme
+            const float32Array = new Float32Array(int8Array.length);
+            for (let i = 0; i < int8Array.length; i++) {
+                float32Array[i] = int8Array[i] / 0x7F;
+            }
+            // AudioBuffer ile ses verisini oynatmak
+            const audioBuffer = audioContext.createBuffer(1, float32Array.length, sampleRate);
+            audioBuffer.getChannelData(0).set(float32Array);
             const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioContext.destination);
             source.start(0);
+
             source.onended = () => {
                 source.disconnect();
             };
