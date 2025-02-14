@@ -172,7 +172,7 @@ const AudioCall = ({ }) => {
 
                 console.log({ volume })
                 // do something with it
-                if (isMicOpen.current && volume > 400) {
+                if (isMicOpen.current && volume > 150) {
                     sendAudio(buffer);
                 }
             };
