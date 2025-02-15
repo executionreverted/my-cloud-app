@@ -7,11 +7,33 @@ import { PiPhoneCall } from 'react-icons/pi';
 import { useRoom } from '../../hooks/useRoom';
 import { CiMicrophoneOn, CiMicrophoneOff } from 'react-icons/ci';
 import workletUrl from "../../assets/worklet.js?url";
+import vadUrl from "../../assets/vad.js?url";
 
 
 const SAMPLE_RATE = 44100;
 const CHANNELS = 1;
-const BUFFER_SIZE = 1024; // Smaller buffer size
+const BUFFER_SIZE = 16384; // Smaller buffer size
+
+
+
+let lastAudioEndTime = 0; // 🎯 Son oynatılan paketin bitiş zamanı
+const BUFFER_DELAY = 0.04; // 🎯 50ms gecikme ekleyerek sabit çalma sağlar
+
+function calculateRMS(buffer) {
+    let sumSquares = 0;
+    for (let i = 0; i < buffer.length; i++) {
+        sumSquares += buffer[i] * buffer[i];
+    }
+    return Math.sqrt(sumSquares / buffer.length);
+}
+
+const RMS_THRESHOLD = 189; // Gürültü eşiği, denemelerle bu değeri ayarlayabilirsin
+
+function shouldSendAudio(buffer) {
+    const rms = calculateRMS(buffer);
+    return rms > RMS_THRESHOLD; // İnsan sesi olup olmadığını kontrol ediyoruz
+}
+
 
 // AudioProcessor.js'yi eklediğinizden emin olun (işlemci sınıfı)
 const AudioCall = ({ }) => {
@@ -28,15 +50,50 @@ const AudioCall = ({ }) => {
     const [busy, setBusy] = useState(false)
     const sourceNodeRef = useRef(null);
     const audioWorkletNodeRef = useRef(null);
-    const processorRef = useRef(null)
+    const vadWorkletNodeRef = useRef(null);
+    const analyserRef = useRef(null)
+    const audioQueue = useRef([])
     function sendAudio(dataArray) {
-        const swarm$ = swarms[roomId.current + 'voice'];
-        if (swarm$) {
-            const buffer = Buffer.from(dataArray.buffer); // Direkt float32 olarak gönder
-            for (const peer of [...swarm$.connections]) {
-                peer.write(buffer);
+        if (!shouldSendAudio(dataArray)) {
+            return
+        }
+        const frequencyData = getFrequencyData();
+        if (frequencyData && isHumanVoice(frequencyData)) {
+            const swarm$ = swarms[roomId.current + 'voice'];
+            if (swarm$) {
+                const buffer = Buffer.from(dataArray.buffer); // Direkt float32 olarak gönder
+                for (const peer of [...swarm$.connections]) {
+                    peer.write(buffer);
+                }
             }
         }
+    }
+
+
+    function getFrequencyData() {
+        if (!audioContextRef.current || !analyserRef.current) return null;
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyserRef.current.getByteFrequencyData(dataArray);
+        return dataArray;
+    }
+
+    function isHumanVoice(frequencyData) {
+        let voiceFrequency = 0;
+
+        // 300Hz ile 3000Hz arasındaki frekansları kontrol et
+        const startFreq = 300;   // Başlangıç frekansı
+        const endFreq = 3000;    // Bitiş frekansı
+        const startIndex = Math.floor(startFreq / SAMPLE_RATE * frequencyData.length);
+        const endIndex = Math.floor(endFreq / SAMPLE_RATE * frequencyData.length);
+
+        for (let i = startIndex; i < endIndex; i++) {
+            voiceFrequency += frequencyData[i];
+        }
+
+        console.log(voiceFrequency)
+
+        return voiceFrequency > 50; // Eğer toplam yoğunluk belirli bir değeri geçerse, insan sesi olma ihtimali yüksek
     }
 
     async function joinVoiceChat(_roomId) {
@@ -71,7 +128,7 @@ const AudioCall = ({ }) => {
     async function leaveCall() {
         setBusy(true)
         await stopRecording()
-        cleanupAudioResources()
+        await cleanupAudioResources()
         const swarm$ = swarms[roomId.current + 'voice'];
         await swarm$?.close?.()
         setInCall(false)
@@ -101,9 +158,7 @@ const AudioCall = ({ }) => {
         if (audioContextRef.current) {
             try {
                 await audioContextRef.current.close();
-                await processorRef.current.close();
                 audioContextRef.current = null;
-                processorRef.current = null
             } catch (error) {
                 console.error("Error closing AudioContext:", error);
             }
@@ -126,7 +181,6 @@ const AudioCall = ({ }) => {
                 audio: {
                     sampleRate: SAMPLE_RATE,
                     channelCount: CHANNELS,
-
                 }
             });
             stream.current = userStream
@@ -137,21 +191,34 @@ const AudioCall = ({ }) => {
 
             const highPassFilter = audioContextRef.current.createBiquadFilter();
             highPassFilter.type = "highpass";
-            highPassFilter.frequency.value = 180;
+            highPassFilter.frequency.value = 300;
 
             const lowPassFilter = audioContextRef.current.createBiquadFilter();
             lowPassFilter.type = "lowpass";
-            lowPassFilter.frequency.value = 5000;
+            lowPassFilter.frequency.value = 4500;
 
+            // 🔹 Dynamics Compressor kullan (noise gate gibi davranır)
             const compressor = audioContextRef.current.createDynamicsCompressor();
-            compressor.threshold.setValueAtTime(-50, audioContextRef.current.currentTime);  
-            compressor.knee.setValueAtTime(40, audioContextRef.current.currentTime); 
-            compressor.ratio.setValueAtTime(12, audioContextRef.current.currentTime);
-            compressor.attack.setValueAtTime(0.003, audioContextRef.current.currentTime); 
-            compressor.release.setValueAtTime(0.25, audioContextRef.current.currentTime);  
+            compressor.threshold.value = -35; // 🎯 Gürültü eşiği (-40 dB)
+            compressor.knee.value = 40;
+            compressor.ratio.value = 12;
+            compressor.attack.value = 0.001; // Hızlı tepki
+            compressor.release.value = 0.25; // Çıkışı hızlı bırak
 
+
+            const analyser = audioContextRef.current.createAnalyser();
+            analyserRef.current = analyser
+
+
+            // const compressor = audioContextRef.current.createDynamicsCompressor();
+            // compressor.threshold.setValueAtTime(-50, audioContextRef.current.currentTime);  
+            // compressor.knee.setValueAtTime(40, audioContextRef.current.currentTime); 
+            // compressor.ratio.setValueAtTime(12, audioContextRef.current.currentTime);
+            // compressor.attack.setValueAtTime(0.003, audioContextRef.current.currentTime); 
+            // compressor.release.setValueAtTime(0.25, audioContextRef.current.currentTime);  
 
             await audioContextRef.current.audioWorklet.addModule(workletUrl);
+            await audioContextRef.current.audioWorklet.addModule(vadUrl);
             if (!audioWorkletNodeRef.current) {
                 audioWorkletNodeRef.current = new AudioWorkletNode(audioContextRef.current, "linear-pcm-processor", {
                     processorOptions: {
@@ -160,19 +227,17 @@ const AudioCall = ({ }) => {
                 });
             }
             sourceNodeRef.current
+                .connect(analyserRef.current)
                 .connect(highPassFilter)
                 .connect(lowPassFilter)
                 .connect(compressor)
                 .connect(audioWorkletNodeRef.current);
-            // audioWorkletNodeRef.current.connect(audioContextRef.current.destination);
 
             audioWorkletNodeRef.current.port.onmessage = (e) => {
                 const buffer = e.data;
                 const volume = Math.max(...buffer);
 
-                console.log({ volume })
-                // do something with it
-                if (isMicOpen.current && volume > 150) {
+                if (isMicOpen.current) {
                     sendAudio(buffer);
                 }
             };
@@ -199,6 +264,12 @@ const AudioCall = ({ }) => {
                 });
             }
 
+            if (audioQueue.current.length > 5) {
+                console.warn("🚨 Çok fazla ses paketi kuyruğa girdi, eski paketleri temizliyorum.");
+                audioQueue.current.shift(); // Eski paketleri at
+            }
+
+
             // 🔹 Veriyi doğru tipte al (Uint8 → Int16)
             const alignedBuffer = new Uint8Array(data);
             if (alignedBuffer.length % 2 !== 0) {
@@ -219,18 +290,53 @@ const AudioCall = ({ }) => {
             const audioBuffer = audioContextRef.current.createBuffer(1, float32Array.length, SAMPLE_RATE);
             audioBuffer.getChannelData(0).set(float32Array);
 
-            const source = audioContextRef.current.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContextRef.current.destination);
-            source.start(0);
+            // 🔹 Buffer kuyruğuna ekle
+            audioQueue.current.push(audioBuffer);
 
-            source.onended = () => {
-                source.disconnect();
-            };
+            // 🔹 Kuyruğu zamanlayarak oynat
+            playQueuedAudio();
         } catch (error) {
             console.error("🚨 Audio playback error:", error);
         }
     };
+
+    const playQueuedAudio = () => {
+        if (audioQueue.current.length === 0 || !audioContextRef.current) return;
+
+        // 🔹 En eski buffer'ı al
+        const audioBuffer = audioQueue.current.shift();
+        if (!audioBuffer) return;
+
+        if (audioQueue.current.length > 5) {
+            audioQueue.current.shift(); // Buffer kuyruğunu temizle
+        }
+
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContextRef.current.destination);
+
+        // 🎯 Sesin başlangıç zamanı = önceki sesin bitişi + buffer gecikmesi
+        const currentTime = audioContextRef.current.currentTime;
+        const playTime = Math.max(currentTime, lastAudioEndTime) + BUFFER_DELAY;
+        source.start(playTime);
+
+        // 🎯 Bitiş zamanını güncelle
+        lastAudioEndTime = playTime + source.buffer.duration;
+
+        source.onended = () => {
+            source.disconnect();
+
+            // 🔹 Buffer fazla dolmasın diye temizle (maksimum 10 buffer tut)
+            if (audioQueue.current.length > 10) {
+                audioQueue.current.splice(0, audioQueue.current.length - 10);
+            }
+
+            if (audioQueue.current.length > 0) {
+                playQueuedAudio(); // Yeni buffer varsa devam et
+            }
+        };
+    };
+
 
     return (
         <HStack ml={"auto"} gap={2}>
