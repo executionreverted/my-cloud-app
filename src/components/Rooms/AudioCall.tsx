@@ -136,38 +136,43 @@ const AudioCall = ({ }) => {
     }
 
     async function cleanupAudioResources() {
-        // Stop recording and clear stream
-        if (stream.current) {
-            const tracks = stream.current.getTracks();
-            tracks.forEach(track => track.stop());
-            stream.current = null;
-        }
-
-        // Disconnect and cleanup audio nodes
-        if (sourceNodeRef.current) {
-            sourceNodeRef.current.disconnect();
-            sourceNodeRef.current = null;
-        }
-
-        if (audioWorkletNodeRef.current) {
-            audioWorkletNodeRef.current.disconnect();
-            audioWorkletNodeRef.current.port.onmessage = null;
-            audioWorkletNodeRef.current = null;
-        }
-        // Close AudioContext
-        if (audioContextRef.current) {
-            try {
-                await audioContextRef.current.close();
-                audioContextRef.current = null;
-            } catch (error) {
-                console.error("Error closing AudioContext:", error);
+        try {
+            // Stop recording and clear stream
+            if (stream.current) {
+                const tracks = stream.current.getTracks();
+                tracks.forEach(track => track.stop());
+                stream.current = null;
             }
+            audioQueue.current = []
+            analyserRef.current = null
+            // Disconnect and cleanup audio nodes
+            if (sourceNodeRef.current) {
+                sourceNodeRef.current.disconnect();
+                sourceNodeRef.current = null;
+            }
+
+            if (audioWorkletNodeRef.current) {
+                audioWorkletNodeRef.current.disconnect();
+                audioWorkletNodeRef.current.port.onmessage = null;
+                audioWorkletNodeRef.current = null;
+            }
+            // Close AudioContext
+            if (audioContextRef.current) {
+                try {
+                    await audioContextRef.current.close();
+                    audioContextRef.current = null;
+                } catch (error) {
+                    console.error("Error closing AudioContext:", error);
+                }
+            }
+            setIsRecording(false);
+            isMicOpen.current = false;
+            setMicOpen(false);
+            setInCall(false)
+            isInCall.current = false
+        } catch (error) {
+            console.log('Error while cleanup, ', error)
         }
-        setIsRecording(false);
-        isMicOpen.current = false;
-        setMicOpen(false);
-        setInCall(false)
-        isInCall.current = false
     }
 
     async function startRecording() {
