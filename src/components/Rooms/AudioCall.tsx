@@ -17,23 +17,7 @@ const BUFFER_SIZE = 16384; // Smaller buffer size
 
 
 let lastAudioEndTime = 0; // 🎯 Son oynatılan paketin bitiş zamanı
-const BUFFER_DELAY = 0.04; // 🎯 50ms gecikme ekleyerek sabit çalma sağlar
-
-function calculateRMS(buffer) {
-    let sumSquares = 0;
-    for (let i = 0; i < buffer.length; i++) {
-        sumSquares += buffer[i] * buffer[i];
-    }
-    return Math.sqrt(sumSquares / buffer.length);
-}
-
-const RMS_THRESHOLD = 189; // Gürültü eşiği, denemelerle bu değeri ayarlayabilirsin
-
-function shouldSendAudio(buffer) {
-    const rms = calculateRMS(buffer);
-    return rms > RMS_THRESHOLD; // İnsan sesi olup olmadığını kontrol ediyoruz
-}
-
+const BUFFER_DELAY = 0.01; // 🎯 50ms gecikme ekleyerek sabit çalma sağlar
 
 // AudioProcessor.js'yi eklediğinizden emin olun (işlemci sınıfı)
 const AudioCall = ({ }) => {
@@ -54,47 +38,15 @@ const AudioCall = ({ }) => {
     const analyserRef = useRef(null)
     const audioQueue = useRef([])
     function sendAudio(dataArray) {
-        if (!shouldSendAudio(dataArray)) {
-            return
-        }
-        const frequencyData = getFrequencyData();
-        if (frequencyData && isHumanVoice(frequencyData)) {
-            const swarm$ = swarms[roomId.current + 'voice'];
-            if (swarm$) {
-                const buffer = Buffer.from(dataArray.buffer); // Direkt float32 olarak gönder
-                for (const peer of [...swarm$.connections]) {
-                    peer.write(buffer);
-                }
+        const swarm$ = swarms[roomId.current + 'voice'];
+        if (swarm$) {
+            const buffer = Buffer.from(dataArray.buffer); // Direkt float32 olarak gönder
+            for (const peer of [...swarm$.connections]) {
+                peer.write(buffer);
             }
         }
     }
 
-
-    function getFrequencyData() {
-        if (!audioContextRef.current || !analyserRef.current) return null;
-        const bufferLength = analyserRef.current.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        analyserRef.current.getByteFrequencyData(dataArray);
-        return dataArray;
-    }
-
-    function isHumanVoice(frequencyData) {
-        let voiceFrequency = 0;
-
-        // 300Hz ile 3000Hz arasındaki frekansları kontrol et
-        const startFreq = 300;   // Başlangıç frekansı
-        const endFreq = 3000;    // Bitiş frekansı
-        const startIndex = Math.floor(startFreq / SAMPLE_RATE * frequencyData.length);
-        const endIndex = Math.floor(endFreq / SAMPLE_RATE * frequencyData.length);
-
-        for (let i = startIndex; i < endIndex; i++) {
-            voiceFrequency += frequencyData[i];
-        }
-
-        console.log(voiceFrequency)
-
-        return voiceFrequency > 50; // Eğer toplam yoğunluk belirli bir değeri geçerse, insan sesi olma ihtimali yüksek
-    }
 
     async function joinVoiceChat(_roomId) {
         setBusy(true)
@@ -210,11 +162,6 @@ const AudioCall = ({ }) => {
             compressor.attack.value = 0.001; // Hızlı tepki
             compressor.release.value = 0.25; // Çıkışı hızlı bırak
 
-
-            const analyser = audioContextRef.current.createAnalyser();
-            analyserRef.current = analyser
-
-
             // const compressor = audioContextRef.current.createDynamicsCompressor();
             // compressor.threshold.setValueAtTime(-50, audioContextRef.current.currentTime);  
             // compressor.knee.setValueAtTime(40, audioContextRef.current.currentTime); 
@@ -232,7 +179,6 @@ const AudioCall = ({ }) => {
                 });
             }
             sourceNodeRef.current
-                .connect(analyserRef.current)
                 .connect(highPassFilter)
                 .connect(lowPassFilter)
                 .connect(compressor)
@@ -242,7 +188,8 @@ const AudioCall = ({ }) => {
                 const buffer = e.data;
                 const volume = Math.max(...buffer);
 
-                if (isMicOpen.current) {
+                console.log({volume}, "volume must be at least 150 to send data")
+                if (isMicOpen.current && volume > 300) {
                     sendAudio(buffer);
                 }
             };
